@@ -1,19 +1,24 @@
+<pre>
 Document number: PxxxxR0
 Date:            2017-10-03
 Project:         Programming Language C++, Evolution Working Group
-Reply-to:        Ben Deane <ben at elbeno dot com>
+Reply-to:        Ben Deane <ben at elbeno dot com>              
                  Gašper Ažman <gasper dot azman at gmail dot com>
+</pre>
 
-# Divining the Value Category of `*this`
+Divining the Value Category of `*this`
+======================================
 
-## Introduction
+Introduction
+------------
 
 We propose a new mechanism for specifying the value category of an instance of a
 class which can be divined from inside a member function of that class. In
 short, a way to tell from within a member function whether one's `this` points
 to an rvalue or an lvalue.
 
-## Motivation
+Motivation
+----------
 
 The existing mechanism for this (adding a reference qualifier suffix to a member
 function) suffers from two problems:
@@ -37,7 +42,8 @@ from inside its function call operator, the implementer has a dilemma: incur a
 copy, or use a move, and impose a requirement that is unenforceable in code and
 sets hidden traps for the unwary.
 
-## Proposed Solution
+Proposed Solution
+-----------------
 
 We propose the ability to add an optional first parameter to any member function
 of a class `T`, taking the form `T&& this`. To facilitate use in lambda
