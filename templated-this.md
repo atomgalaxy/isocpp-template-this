@@ -6,32 +6,30 @@ Reply-to:        Ben Deane <ben at elbeno dot com>
                  Gašper Ažman <gasper dot azman at gmail dot com>
 </pre>
 
-Template `this`! (Divining the value-category of `*this`)
-================
+Divining the Value Category of `*this`
+======================================
 
 Introduction
 ------------
 
 We propose a new mechanism for specifying the value category of an instance of a
-class which is visible from inside a member function of that class.
-In other words, a way to tell from within a member function whether one's `this`
-points to an rvalue or an lvalue, and whether it is const or volatile.
+class which can be divined from inside a member function of that class. In
+short, a way to tell from within a member function whether one's `this` points
+to an rvalue or an lvalue.
 
 Motivation
 ----------
 
-The existing mechanism for this (adding a reference, rvalue-reference, const, or
-volatile qualifier (_cv-ref qualifiers_) suffixes to a member function) suffers
-from problems.
+The existing mechanism for this (adding a reference qualifier suffix to a member
+function) suffers from two problems:
 
 ### It is verbose. 
 
 A common task in writing a class is providing a "getter function" to access a
 contained member. Authors that care about performance want to provide getter
 functions that take advantage of move semantics in the case where the class
-instance is an rvalue, and so end up writing several of these functions, which
-only differ in the cv-ref qualifiers .
-
+instance is an rvalue, so end up duplicating, possibly triplicating these
+functions.
 
 ### There is no way to write a reference qualifier for a lambda expression.
 
@@ -44,9 +42,78 @@ from inside its function call operator, the implementer has a dilemma: incur a
 copy, or use a move, and impose a requirement that is unenforceable in code and
 sets hidden traps for the unwary.
 
+Proposed Solution
+-----------------
 
-Design Decisions
-----------------
+We propose the ability to add an optional first parameter to any member function
+of a class `T`, taking the form `T&& this`. To facilitate use in lambda
+expressions, this may also be formulated as `auto&& this`.
+
+When this parameter is present, using `*this` inside the member function or
+lambda expression would have the same effect as using a function argument passed
+by forwarding reference, as seen in the following examples:
+
+```cpp
+// Within a class
+
+struct Person {
+  std::string name;
+  
+  // Getter - *this is deduced to be either:
+  // const Person&, Person& or Person&&
+  // and normal reference collapsing applies
+  decltype(auto) GetName(Person&& this) {
+    return std::forward<decltype(*this)>(*this).name;
+  }
+
+  // The following functions are replaced:
+  // const std::string& GetName() const &;
+  // std::string& GetName() &;
+  // std::string&& GetName() &&;
+};
+
+// As a lambda expression
+
+template <typename F>
+void bar(F&& f) {
+  // do something with std::forward<F>(f)
+  // ...
+}
+
+void foo()
+{
+  string s = "Hello, world!";
+  
+  // Here, the closure object is an rvalue:
+  // the captured s will be correctly moved
+  bar([s] (auto&& this) { 
+    return std::forward<decltype(*this)>(*this).s;
+  }
+}
+```
+
+From these examples it follows that a definition of a member function with `T&&
+this` as its first parameter may be likened to declaring a free function
+template that is a friend of `T` and that is constrained to take a forwarding
+reference to `T` as its first argument. Usage of `*this` within the function is
+very similar to existing practice dealing with arguments that are forwarding
+references.
+
+It is also clear that this opens the ability to refer to a closure object from
+inside a lambda expression: something that until now has been impossible. We
+believe this to be important for the performance reasons given. However, this is
+perhaps undesirable in general and has the potential for poor interaction with
+by-reference captures and existing `this` or `*this` capture. For this reason we
+propose allowing using `*this` only to refer to by-copy captures inside a lambda
+expression body.
+
+We believe that existing `this` and `*this` capture is entirely obviated by init
+capture and thus need not be used; any new code using `auto&& this` to access
+the closure object has no need of `this` or `*this` capture.
+
+TBD: Do we believe this?
+
+## Design Decisions
    
 In addition to solving the existing problems, desirable properties of a solution
 are:
@@ -67,249 +134,18 @@ are:
 
 TBD: more here.
 
-
-Proposed Solution
------------------
-
-We propose the ability to add an optional first parameter to any member function
-of a class `T`, taking the form `T [const] [volatile] [&|&&] this`.
-
-To facilitate use in generic lambda expressions, this may also be formulated as
-`auto [const] [volatile] [&|&&] this`.
-
-In all cases, the value-category of `this` inside the member function is exactly
-what the existing parameter rules already imply.
-
-This, in the cases where the type of `this` is not a template, maps to the
-existing practice of putting cv-ref qualifiers (that really apply to `*this` in
-current parlance) on the function itself, by writing them behind the parameter
-list, as far as the function signature is concerned.
-
-```cpp
-// Within a class
-
-struct Person {
-  std::string name;
-  
-  // Getter:
-  template <typename T>
-  decltype(auto) GetName(T&& this) { 
-      // T can only deduce to Person (mod cvref) because of visibility
-    return std::forward<T>(this).name;
-  }
-
-  // This template may instantiate the following functions:
-  // const std::string& GetName() const &;
-  // std::string& GetName() &;
-  // std::string&& GetName() &&;
-};
-
-void foo()
-{
-  string s = "Hello, world!";
-  
-  // Here, the closure object is an rvalue:
-  // the captured s will be correctly moved
-  bar([s] (auto&& this) { 
-    return std::forward<decltype(this)>(this).s;
-  }
-}
-```
-
-What does `this` in a parameter list mean?
-------------------------------------------
-
-The meaning of the different ways to pass `this` is very similar to the way
-`catch` works. This table uses `T` to refer to the enclosing class. `T` is not a
-`template`. This shall be illustrated on the method family `void f(...)...`.
-
-| written as                        | C++17 signature             | comments   | 
-| -------------------------         | --------------------------- | ---------- | 
-| `void f(T this)`                  | currently not available     | [value]    | 
-| `void f(T& this)`                 | `void f()&`                 |            | 
-| `void f(T&& this)`                | `void f()&&`                |            | 
-| `void f(T const this)`            | currently not available     | [value]    | 
-| `void f(T const& this)`           | `void f() const&`           |            | 
-| `void f(T const&& this)`          | `void f() const&&`          |            | 
-| `void f(T volatile this)`         | currently not available     | [value]    | 
-| `void f(T volatile& this)`        | `void f() volatile&`        |            | 
-| `void f(T volatile&& this)`       | `void f() volatile&&`       |            | 
-| `void f(T const volatile this)`   | currently not available     | [value]    | 
-| `void f(T const volatile& this)`  | `void f() const volatile&`  |            | 
-| `void f(T const volatile&& this)` | `void f() const volatile&&` |            | 
-
-*Notes:*
-
-- *[value]*: whether passing by value should be allowed is debatable, but seems
-  obviously desired for completeness and parity with inline friend functions.
-- The interpretation of `this` in the method body differs, but only one
-  definition for a given signature may be present, eg. one may define at most
-  one of `void f()&`, or `void f(T& this)` or `void f()`, the first and last
-  already being exclusive of one another.
-
-
-### How does templated `this` work?
-
-Using existing deduction rules for template parameters, which will deduce the
-type of `this` to something in the above table.
-
-
-### What does `this` mean in the body of a method?
-
-It behaves exactly as a regular parameter declared in the same way.
-
-
-### Constructors
-
-No exceptions to above rules. If a particular constructor signature is not
-allowed by the language, it continues to be disallowed. We can already access
-already-initialized members in initialization lists, which means `this` is
-already available, even though it hasn't been completely constructed yet.
-
-
-### What about pass by value methods?
-
-We think they are a logical extension of the mechanism, and would go a long way
-towards making methods as powerful as inline friend functions, with the only
-difference being the call syntax.
-
-One really cool implication of this is that the `this` parameter would be
-move-constructed in the case where the object is an _rvalue_, allowing you to
-treat chained builder methods that return a new object uniformly.
-
-*Example:*
-
-```cpp
-class string_builder {
-  std::string s;
-
-  operator std::string (T this) {
-    return std::move(s);
-  }
-  string_builder operator*(T this, int n) {
-    assert(n > 0);
-    
-    s.reserve(s.size() * n);
-    auto const size = s.size();
-    for (auto i = 0; i < n; ++i) {
-      s.append(s, 0, size);
-    }
-    return this;
-  }
-  string_builder bop(T this) {
-    s.append("bop");
-    return this;
-  }
-};
-
-// this is optimally efficient as far as allocations go
-std::string const x = (string_builder{{"asdf"}} * 5).bop();
-```
-
-Of course, implementing this example with templated `this` methods would have
-been more efficient due to just having fewer objects, but we got rid of all
-references in the program!
-
-
-### `this` as a reference
-
-This paper turns `this` into a reference on an opt-in basis, which is in line
-with the existing guidance that never-null pointers should be references if at
-all possible, and in this case, it is possible.
-
-We believe there would be no confusion, as in all cases, the value category of
-`this` is stated plain as day in the parameter list, which is on the very same
-screen.
-
-Teaching also becomes easier, as the meaning of what a 'const method' is becomes
-more obvious to students.
-
-One can always obtain the address of the object by taking the address of the
-`this`.
-
-
-### unification with `inline friend` functions
-
-This proposal also makes `this` far less special. In fact, it completely unifies
-`inline friend` functions and class methods, with the differences being:
-
-- the calling convention
-- methods can be virtual
-
-Basically, if the first parameter is called `this`, one can parse and
-instantiate the declaration with exactly the same rules as an `inline friend`,
-except with a calling convention for methods.
-
-
-### `virtual`
-
-We are not entirely sure how `virtual` and value calling conventions would work,
-so perhaps we can disallow that use-case, if the pass-by-value signatures are
-kept in.
-
-Implications for lambdas
-------------------------
-
-Generic lambdas, should they take an `auto&& this` parameter, work according to
-existing rewriting rules: the `auto&& this` is turned into a "universal
-reference" and deduced as if it were inside a
-`template <typename T> auto operator()(T&& this) -> <return type> {...}`.)
-
-### Interplays with capturing `[this]` and `[*this]`
-
-As an explicit parameter, it shadows members of the closure. That said, using
-`this` inside the lambda is useless for anything other than `decltype(this)`,
-since the closure members have no defined names.
-
-TBD: does init-capture obviate all need for `*this`?
-
-### Do we allow `this` in lambdas that decay to a function pointer? 
-
-If the lambda would otherwise decay to a function pointer, `&this` shall have
-the value of that function pointer.
-
-### Does this allow recursion in lambdas?
-
-Yup. You're allowed to call `this(...)`.
-
-
-### Expressions allowed for `this` in lambdas:
-```
-this(...);      // call with appropriate signature
-decltype(this); // evaluates to the type of the lambda with the appropriate
-                // cv-ref qualifiers
-&this;          // the address of either the closure object or function pointer
-std::move(this) // you're allowed to move yourself into an algorithm...
-/* ... and all other things you're allowed to do with the lambda itself. */
-```
-
-TBD: I don't think we should say that you can now refer to the closure object.
-What you can do is deduce the value category of the closure object, and access
-its members in a way appropriate to it.
-
-TBD: Do we believe this?
-
-
-Impact on the Standard
-----------------------
+## Impact on the Standard
    
 TBD: A bunch of stuff in section 8.1.5 [expr.prim.lambda].
-TBD: A bunch of stuff in that `this` can appear as the first method parameter.
 
-Acknowledgments
----------------
+## Acknowledgments
 
 Thanks to the following for their help and guidance:
 
-- Louis Dionne
-- Marshal Clowe
+Louis Dionne
 
-References
-----------
+## References
 
-- `*this` capture paper
-- ...
-
-We should probably look up the paper that added `*this` capture and why.
-And any other salient papers.
+We should probably look up the paper that added `*this` capture and why. And any
+other salient papers.
 
