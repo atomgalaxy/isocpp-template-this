@@ -179,7 +179,7 @@ treat chained builder methods that return a new object uniformly.
 
 *Example:*
 
-```
+```cpp
 class string_builder {
   std::string s;
 
