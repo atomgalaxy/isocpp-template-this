@@ -45,8 +45,8 @@ copy, or use a move, and impose a requirement that is unenforceable in code and
 sets hidden traps for the unwary.
 
 
-Design Decisions
-----------------
+Design Considerations
+---------------------
    
 In addition to solving the existing problems, desirable properties of a solution
 are:
@@ -54,11 +54,7 @@ are:
 * It should work the same way for member functions and lambda expressions.
 
 * It should work like existing practice as much as possible, while adding as
-  little extra syntax as possible. Using `auto&& this` follows existing patterns
-  for dealing with forwarding references. Optionally adding "this" as the first
-  parameter fits with many programmers' mental model of the `this` pointer being
-  the first parameter to member functions "under the hood" and is comparable to
-  usage in other languages, e.g. Python.
+  little extra syntax as possible.
 
 * It should avoid adding extraneous syntax to function declarations. In a world
   where every function is fast becoming tagged with attributes, constexpr,
@@ -92,13 +88,14 @@ struct Person {
   std::string name;
   
   // Getter:
-  template <typename T>
-  decltype(auto) GetName(T&& this) { 
-      // T can only deduce to Person (mod cvref) because of visibility
+  template <typename U>
+  decltype(auto) GetName(U&& this) { 
+    // U can only deduce to Person (const, volatile, &, &&) because of
+    // visibility
     return std::forward<T>(this).name;
   }
 
-  // This template may instantiate the following functions:
+  // This template will likely instantiate the following functions:
   // const std::string& GetName() const &;
   // std::string& GetName() &;
   // std::string&& GetName() &&;
@@ -111,7 +108,7 @@ void foo()
   // Here, the closure object is an rvalue:
   // the captured s will be correctly moved
   bar([s] (auto&& this) { 
-    return std::forward<decltype(this)>(this).s;
+    return std::forward_like<decltype(this)>(s); // separate TODO proposal
   }
 }
 ```
@@ -119,12 +116,19 @@ void foo()
 What does `this` in a parameter list mean?
 ------------------------------------------
 
-The meaning of the different ways to pass `this` is very similar to the way
-`catch` works. This table uses `T` to refer to the enclosing class. `T` is not a
-`template`. This shall be illustrated on the method family `void f(...)...`.
+The meaning of the different ways to pass `this` is the same as current general
+parameter handling.
+
+The entries of this table should be read as if they are inside
+
+```cpp
+class T { /* entry */ };
+```
+
+In other words, `T` is _not_ a template parameter.
 
 | written as                        | C++17 signature             | comments   | 
-| -------------------------         | --------------------------- | ---------- | 
+| --------------------------------- | --------------------------- | ---------- | 
 | `void f(T this)`                  | currently not available     | [value]    | 
 | `void f(T& this)`                 | `void f()&`                 |            | 
 | `void f(T&& this)`                | `void f()&&`                |            | 
@@ -173,9 +177,10 @@ We think they are a logical extension of the mechanism, and would go a long way
 towards making methods as powerful as inline friend functions, with the only
 difference being the call syntax.
 
-One really cool implication of this is that the `this` parameter would be
-move-constructed in the case where the object is an _rvalue_, allowing you to
-treat chained builder methods that return a new object uniformly.
+One implication of this is that the `this` parameter would be move-constructed
+in the case where the object is an _rvalue_, allowing you to treat chained
+builder methods that return a new object uniformly _without_ having to resort to
+templates.
 
 *Example:*
 
@@ -228,12 +233,12 @@ One can always obtain the address of the object by taking the address of the
 `this`.
 
 
-### unification with `inline friend` functions
+### Unification with `inline friend` functions
 
 This proposal also makes `this` far less special. In fact, it completely unifies
 `inline friend` functions and class methods, with the differences being:
 
-- the calling convention
+- the calling syntax (method vs free function)
 - methods can be virtual
 
 Basically, if the first parameter is called `this`, one can parse and
@@ -247,6 +252,27 @@ We are not entirely sure how `virtual` and value calling conventions would work,
 so perhaps we can disallow that use-case, if the pass-by-value signatures are
 kept in.
 
+
+### Teachability Implications
+
+Using `auto&& this` follows existing patterns for dealing with forwarding
+references.
+
+
+Optionally adding "this" as the first parameter fits with many programmers'
+mental model of the `this` pointer being the first parameter to member functions
+"under the hood" and is comparable to usage in other languages, e.g.  Python and
+Rust.
+
+It also works as a more obvious way to teach about how `std::bind` and
+`std::function` with a method pointer work by making the pointer explicit.
+
+
+### ABI Implications for `std::function` and Related
+
+If references and pointers do not have the same representation for methods, this
+effectively says "for the purposes of `this`, they do.".
+
 Implications for lambdas
 ------------------------
 
@@ -257,9 +283,11 @@ reference" and deduced as if it were inside a
 
 ### Interplays with capturing `[this]` and `[*this]`
 
-As an explicit parameter, it shadows members of the closure. That said, using
-`this` inside the lambda is useless for anything other than `decltype(this)`,
-since the closure members have no defined names.
+As `this` is passed as an explicit parameter, it shadows members of the closure.
+That said, it's not possible to refer to the members of the closure using the
+`this` pointer of the lambda, since the closure has no defined layout and the
+members referenced may not even be inserted into the closure, if there even is
+one.
 
 TBD: does init-capture obviate all need for `*this`?
 
@@ -302,12 +330,13 @@ Acknowledgments
 Thanks to the following for their help and guidance:
 
 - Louis Dionne
-- Marshal Clowe
+- Marshall Clow
 
 References
 ----------
 
-- `*this` capture paper
+- P0018r3:[Capturing `*this` by Value](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0018r3.html)
+- P0637r0:[Capture `*this` With Initializer](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0637r0.html)
 - ...
 
 We should probably look up the paper that added `*this` capture and why.
