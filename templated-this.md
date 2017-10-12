@@ -72,10 +72,10 @@ Proposed Solution
 -----------------
 
 We propose the ability to add an optional first parameter to any member function
-of a class `T`, taking the form `T [const] [volatile] [&|&&|*] this`.
+of a class `T`, taking the form `T [const] [volatile] [&|&&] this`.
 
 To facilitate use in generic lambda expressions, this may also be formulated as
-`auto [const] [volatile] [&|&&|*] this`.
+`auto [const] [volatile] [&|&&] this`.
 
 In all cases, the value-category of `this` inside the member function is exactly
 what the existing parameter rules already imply.
