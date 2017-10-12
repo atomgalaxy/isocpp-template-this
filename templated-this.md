@@ -173,6 +173,43 @@ We think they are a logical extension of the mechanism, and would go a long way
 towards making methods as powerful as inline friend functions, with the only
 difference being the call syntax.
 
+One really cool implication of this is that the `this` parameter would be
+move-constructed in the case where the object is an _rvalue_, allowing you to
+treat chained builder methods that return a new object uniformly.
+
+*Example:*
+
+```
+class string_builder {
+  std::string s;
+
+  operator std::string (T this) {
+    return std::move(s);
+  }
+  string_builder operator*(T this, int n) {
+    assert(n > 0);
+    
+    s.reserve(s.size() * n);
+    auto const size = s.size();
+    for (auto i = 0; i < n; ++i) {
+      s.append(s, 0, size);
+    }
+    return this;
+  }
+  string_builder bop(T this) {
+    s.append("bop");
+    return this;
+  }
+};
+
+// this is optimally efficient as far as allocations go
+std::string const x = (string_builder{{"asdf"}} * 5).bop();
+```
+
+Of course, implementing this example with templated `this` methods would have
+been more efficient due to just having fewer objects, but we got rid of all
+references in the program!
+
 
 ### `this` as a reference
 
