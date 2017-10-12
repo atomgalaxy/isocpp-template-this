@@ -85,7 +85,7 @@ existing practice of putting cv-ref qualifiers (that really apply to `*this` in
 current parlance) on the function itself, by writing them behind the parameter
 list, as far as the function signature is concerned.
 
-```cpp
+`<THIS>``cpp
 // Within a class
 
 struct Person {
@@ -121,22 +121,22 @@ What does `this` in a parameter list mean?
 
 The meaning of the different ways to pass `this` is very similar to the way
 `catch` works. This table uses `T` to refer to the enclosing class. `T` is not a
-`template`. This shall be illustrated on a method `void f(<THIS>)`.
+`template`. This shall be illustrated on the method family `void f(...)...`.
 
 | written as  (`<THIS>`)    | C++17 signature             | comments                           |
 | ------------------------- | --------------------------- | ---------------------------------- |
-| `T this`                  | currently not available     | [value]                            |
-| `T& this`                 | `void f()&`                 |                                    |
-| `T&& this`                | `void f()&&`                |                                    |
-| `T const this`            | currently not available     | [value]                            |
-| `T const& this`           | `void f() const&`           |                                    |
-| `T const&& this`          | `void f() const&&`          |                                    |
-| `T volatile this`         | currently not available     | [value]                            |
-| `T volatile& this`        | `void f() volatile&`        |                                    |
-| `T volatile&& this`       | `void f() volatile&&`       |                                    |
-| `T const volatile this`   | currently not available     | [value]                            |
-| `T const volatile& this`  | `void f() const volatile&`  |                                    |
-| `T const volatile&& this` | `void f() const volatile&&` |                                    |
+| `void f(T this)`                 | currently not available     | [value]                            |
+| `void f(T& this)`                | `void f()&`                 |                                    |
+| `void f(T&& this)`               | `void f()&&`                |                                    |
+| `void f(T const this)`           | currently not available     | [value]                            |
+| `void f(T const& this)`          | `void f() const&`           |                                    |
+| `void f(T const&& this)`         | `void f() const&&`          |                                    |
+| `void f(T volatile this)`        | currently not available     | [value]                            |
+| `void f(T volatile& this)`       | `void f() volatile&`        |                                    |
+| `void f(T volatile&& this)`      | `void f() volatile&&`       |                                    |
+| `void f(T const volatile this)`  | currently not available     | [value]                            |
+| `void f(T const volatile& this)` | `void f() const volatile&`  |                                    |
+| `void f(T const volatile&& this)`| `void f() const volatile&&` |                                    |
 
 *Notes:*
 
