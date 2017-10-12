@@ -281,6 +281,7 @@ decltype(this); // evaluates to the type of the lambda with the appropriate
 &this;          // the address of either the closure object or function pointer
 std::move(this) // you're allowed to move yourself into an algorithm...
 /* ... and all other things you're allowed to do with the lambda itself. */
+```
 
 TBD: I don't think we should say that you can now refer to the closure object.
 What you can do is deduce the value category of the closure object, and access
