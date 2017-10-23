@@ -44,6 +44,14 @@ from inside its function call operator, the implementer has a dilemma: incur a
 copy, or use a move, and impose a requirement that is unenforceable in code and
 sets hidden traps for the unwary.
 
+### There is no way to refer to a lambda from within itself
+The rationale in the paper [Recursive Lambdas p0839r0](http://wg21.link/p0839r0)
+by Richard Smith is valid and we'd like to transclude it here.
+
+This paper provides an alternative to the proposed solution in that paper.
+
+TBD: Ask Richard if he'd like to contribute.
+
 
 Design Considerations
 ---------------------
@@ -74,12 +82,10 @@ To facilitate use in generic lambda expressions, this may also be formulated as
 `auto [const] [volatile] [&|&&] this`.
 
 In all cases, the value-category of `this` inside the member function is exactly
-what the existing parameter rules already imply.
+what the existing parameter rules would already imply.
 
-This, in the cases where the type of `this` is not a template, maps to the
-existing practice of putting cv-ref qualifiers (that really apply to `*this` in
-current parlance) on the function itself, by writing them behind the parameter
-list, as far as the function signature is concerned.
+In other words, the _cv-ref qualifiers_ that now stand after the function
+signature now explicitly apply to the `this` parameter.
 
 ```cpp
 // Within a class
@@ -108,10 +114,12 @@ void foo()
   // Here, the closure object is an rvalue:
   // the captured s will be correctly moved
   bar([s] (auto&& this) { 
-    return std::forward_like<decltype(this)>(s); // separate TODO proposal
+    return std::forward_like<decltype(this)>(s); // see appendix A
   }
 }
 ```
+
+
 
 What does `this` in a parameter list mean?
 ------------------------------------------
@@ -337,8 +345,98 @@ References
 
 - P0018r3:[Capturing `*this` by Value](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0018r3.html)
 - P0637r0:[Capture `*this` With Initializer](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0637r0.html)
-- ...
+- p0839r0:[Recursive Lambdas](http://wg21.link/p0839r0)
 
 We should probably look up the paper that added `*this` capture and why.
 And any other salient papers.
 
+
+Appendix A: `forward_like`
+--------------------------
+
+We propose a new library facility, forward like, that copies the `cv-ref`
+qualifiers from a type and bestows them on the parameter type of the function.
+
+Proposed semantics.
+```cpp
+#include <type_traits>
+
+// given a utility that transfers cv-ref qualifiers...
+template <typename From, typename To>
+class like {
+    template <bool Condition, template <typename> class Function, typename T>
+    using apply_if = std::conditional_t<Condition, Function<T>, T>;
+    using base = std::remove_cv_t<std::remove_reference_t<To>>;
+    using base_from = std::remove_reference_t<From>;
+
+    static constexpr bool rv = std::is_rvalue_reference_v<From>;
+    static constexpr bool lv = std::is_lvalue_reference_v<From>;
+    static constexpr bool c = std::is_const_v<base_from>;
+    static constexpr bool v = std::is_volatile_v<base_from>;
+
+public:
+    using type = apply_if<lv, std::add_lvalue_reference_t,
+                 apply_if<rv, std::add_rvalue_reference_t,
+                 apply_if<v, std::add_volatile_t,
+                 apply_if<c, std::add_const_t,
+                 base>>>>;
+};
+
+template <typename From, typename To>
+using like_t = typename like<From, To>::type;
+
+static_assert(std::is_same_v<int, like_t<long, int const&&>>);
+static_assert(std::is_same_v<int&, like_t<long&, int const&&>>);
+static_assert(std::is_same_v<int&&, like_t<long&&, int const&&>>);
+static_assert(std::is_same_v<int const, like_t<long const, int>>);
+static_assert(std::is_same_v<int const&, like_t<long const&, int>>);
+static_assert(std::is_same_v<int const&&, like_t<long const&&, int>>);
+static_assert(std::is_same_v<int volatile const, like_t<long volatile const, int>>);
+static_assert(std::is_same_v<int volatile const&, like_t<long volatile const&, int>>);
+static_assert(std::is_same_v<int volatile const&&, like_t<long volatile const&&, int>>);
+static_assert(std::is_same_v<int volatile, like_t<long volatile, int>>);
+static_assert(std::is_same_v<int volatile&, like_t<long volatile&, int>>);
+static_assert(std::is_same_v<int volatile&&, like_t<long volatile&&, int>>);
+
+// ... we can implement forward_like like so:
+template <typename Like, typename T>
+constexpr decltype(auto) forward_like(T& t) noexcept
+{
+    return static_cast<like_t<Like&&, T>>(t);
+}
+
+template <typename Like, typename T,
+    typename = std::enable_if_t<!(std::is_lvalue_reference_v<Like&&> && std::is_rvalue_reference_v<T&&>)>>
+constexpr decltype(auto) forward_like(T&& t) noexcept
+{
+    static_assert(!(std::is_lvalue_reference_v<Like&&> && std::is_rvalue_reference_v<T&&>),
+        "Trying to convert a rvalue to a lvalue is forbidden.");
+    return static_cast<like_t<Like&&, T>>(t);
+}
+
+// and here is the test
+int main()
+{
+    {
+        static_assert(std::is_same_v<int&, decltype(forward_like<long&>(std::declval<int&>()))>);
+        auto x = std::vector<int>{ 1, 2, 3 };
+        forward_like<int&>(x);
+    }
+    {
+        static_assert(std::is_same_v<int&&, decltype(forward_like<long>(std::declval<int&>()))>);
+        auto x = std::vector<int>{ 1, 2, 3 };
+        forward_like<int&&>(x);
+    }
+    { // does not compile
+#ifdef COMPILE_FAILING
+        static_assert(std::is_same_v<int&, decltype(forward_like<long&>(std::declval<int&&>()))>, "should not compile");
+        forward_like<int&>(std::vector<int>{ 1, 2, 3 });
+#endif
+    }
+    {
+        static_assert(std::is_same_v<int&&, decltype(forward_like<long>(std::declval<int&&>()))>);
+        forward_like<int&&>(std::vector<int>{ 1, 2, 3 });
+    }
+    //  foo<decltype(forward_like<long>(std::declval<int&>()))> x;
+}
+```
