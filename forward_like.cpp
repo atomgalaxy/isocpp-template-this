@@ -3,6 +3,8 @@
 #include <type_traits>
 #include <vector>
 
+
+// given a facility that transfers cv-qualifiers from type to type
 template <typename From, typename To>
 class like {
     template <bool Condition, template <typename> class Function, typename T>
@@ -26,6 +28,7 @@ public:
 template <typename From, typename To>
 using like_t = typename like<From, To>::type;
 
+// examples (and tests)
 static_assert(std::is_same_v<int, like_t<long, int const&&>>);
 static_assert(std::is_same_v<int&, like_t<long&, int const&&>>);
 static_assert(std::is_same_v<int&&, like_t<long&&, int const&&>>);
@@ -39,6 +42,7 @@ static_assert(std::is_same_v<int volatile, like_t<long volatile, int>>);
 static_assert(std::is_same_v<int volatile&, like_t<long volatile&, int>>);
 static_assert(std::is_same_v<int volatile&&, like_t<long volatile&&, int>>);
 
+// ... we can define forward_like like so:
 template <typename Like, typename T>
 constexpr decltype(auto) forward_like(T& t) noexcept
 {
@@ -54,9 +58,7 @@ constexpr decltype(auto) forward_like(T&& t) noexcept
     return static_cast<like_t<Like&&, T>>(t);
 }
 
-template <typename T>
-struct foo;
-
+// TEST for forward_like
 int main()
 {
     {
@@ -79,7 +81,6 @@ int main()
         static_assert(std::is_same_v<int&&, decltype(forward_like<long>(std::declval<int&&>()))>);
         forward_like<int&&>(std::vector<int>{ 1, 2, 3 });
     }
-    //  foo<decltype(forward_like<long>(std::declval<int&>()))> x;
 }
 
 // vim: textwidth=80

@@ -437,6 +437,5 @@ int main()
         static_assert(std::is_same_v<int&&, decltype(forward_like<long>(std::declval<int&&>()))>);
         forward_like<int&&>(std::vector<int>{ 1, 2, 3 });
     }
-    //  foo<decltype(forward_like<long>(std::declval<int&>()))> x;
 }
 ```
