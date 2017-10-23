@@ -2,8 +2,8 @@
 Document number: PxxxxR0
 Date:            2017-10-03
 Project:         Programming Language C++, Evolution Working Group
-Reply-to:        Ben Deane <ben at elbeno dot com>              
-                 Gašper Ažman <gasper dot azman at gmail dot com>
+Reply-to:        Ben Deane (ben at elbeno dot com)
+                 Gašper Ažman (gasper dot azman at gmail dot com)
 </pre>
 
 Template `this`! (Divining the value-category of `*this`)
