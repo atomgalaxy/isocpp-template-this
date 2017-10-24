@@ -90,10 +90,10 @@ int main()
 #ifdef ENSURE_FAILS_TO_COMPILE_2
   forward_like<int&>(int());
 #endif
-#ifdef ENSURE_FAILS_TO_COMPILE_3
+#ifdef ENSURE_FAILS_TO_COMPILE_3 // succeeds for some reason
   empty<fwd_t<int&, int&&>>{}; // check understanding
 #endif
-#ifdef ENSURE_FAILS_TO_COMPILE_4 // this one succeeds too for above reasons
+#ifdef ENSURE_FAILS_TO_COMPILE_4
   empty<fwl_t<int&, int&&>>{}; // check behavior
 #endif
 
@@ -151,7 +151,7 @@ int main()
   static_assert(test_same_as_forward<int const&&, int const&>);
   static_assert(test_same_as_forward<int const&&, int const&&>);
   static_assert(test_same_as_forward<int const&, int const&>);
-#ifdef ENSURE_FAILS_TO_COMPILE_19 // rvalue -> lvalue again
+#ifdef ENSURE_FAILS_TO_COMPILE_19 // why does this succeed?
   empty<fwd_t<int const&, int const&&>>{}; // check understanding
 #endif
 #ifdef ENSURE_FAILS_TO_COMPILE_20
