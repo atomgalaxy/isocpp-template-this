@@ -482,16 +482,24 @@ Thanks to the following for their help and guidance:
 \begin{thebibliography}{9}
 
 \bibitem[P0839]{p0839}
-Richard Smith,
+  Richard Smith,
 \emph{Recursive lambdas}\newline
 \url{http://wg21.link/p0839r0}
 
 \bibitem[P0018r3]{p0018r3}
-  \emph{Capturing \code{*this} by value}
+  H. Carter Edwards,
+  Daveed Vandevoorde,
+  Christian Trott,
+  Hal Finkel,
+  Jim Reus,
+  Robin Maffeo, 
+  Ben Sander,
+  \emph{Capturing \code{*this} by value}\newline
   \url{http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0018r3.html}
 
 \bibitem[P0637r0]{p0637r0}
-  \emph{Capture \code{*this} With Initializer}
+  Thomas Köppe,
+  \emph{Capture \code{*this} With Initializer}\newline
   \url{http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0637r0.html}
 
 \end{thebibliography}
