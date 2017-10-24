@@ -5,6 +5,7 @@
 #include <type_traits>
 
 // given a facility that transfers cv-qualifiers from type to type
+// clang-format off
 // START_LIKE_DEF
 template <typename From, typename To>
 class like {
@@ -20,13 +21,16 @@ class like {
 
 public:
   using type = apply_if<lv, std::add_lvalue_reference_t,
-      apply_if<rv, std::add_rvalue_reference_t,
-          apply_if<c, std::add_const_t, apply_if<v, std::add_volatile_t, base>>>>;
+               apply_if<rv, std::add_rvalue_reference_t,
+               apply_if<c, std::add_const_t,
+               apply_if<v, std::add_volatile_t,
+               base>>>>;
 };
 
 template <typename From, typename To>
 using like_t = typename like<From, To>::type;
 // END_LIKE_DEF
+// clang-format on
 
 // ... we can define forward_like like so:
 // START_FWD_LIKE_DEF
@@ -34,7 +38,8 @@ template <typename Like, typename T>
 constexpr decltype(auto) forward_like(T&& t) noexcept
 {
   // first, get `t` back into the value category it was passed in
-  // then, forward it as `Like` was passed in.
+  // then, forward it as if its value category was `Like`'s.
+  // This prohibits rvalue -> lvalue conversions.
   return std::forward<like_t<Like, T>>(std::forward<T>(t));
 }
 // END_FWD_LIKE_DEF

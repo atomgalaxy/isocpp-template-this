@@ -486,6 +486,14 @@ Richard Smith,
 \emph{Recursive lambdas}\newline
 \url{http://wg21.link/p0839r0}
 
+\bibitem[P0018r3]{p0018r3}
+  \emph{Capturing \code{*this} by value}
+  \url{http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0018r3.html}
+
+\bibitem[P0637r0]{p0637r0}
+  \emph{Capture \code{*this} With Initializer}
+  \url{http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0637r0.html}
+
 \end{thebibliography}
 
 
@@ -493,19 +501,27 @@ Richard Smith,
 
 \section{\code{forward\_like}}
 
-We propose a new library facility, \code{forward\_like}, that copies the
-\emph{cv-ref qualifiers} from a type and bestows them on the parameter type of
-the function.
+We propose a new library facility, \code{forward\_like}, that acts as
+\code{std::forward<T>(t).member} does for members, with the syntax
+\code{forward\_like<T>(t.member)}. This is done because in the case of lambdas,
+the closure members are not actually addressable using \code{this.member}.
 
 The proposed semantics are essentially the same as \code{std::forward}.
 If \code{From} and \code{To} are the same type, \code{forward\_like} and
 \code{forward} act exacty the same.
 
+Proposed definition:
 \lstinputlisting[language=cpp,%
                  linerange=START_FWD_LIKE_DEF-END_FWD_LIKE_DEF]{%
                  forward_like.cpp}
+%
+To do that, we require another facility in the standard library, \code{like}:
 \lstinputlisting[language=cpp,%
                  linerange=START_LIKE_DEF-END_LIKE_DEF]{%
                  forward_like.cpp}
+It merely copies the cv-ref qualifiers from \code{From} to \code{To}.
 
+
+The entire listing of the code with all the tests is available at
+\url{https://github.com/atomgalaxy/isocpp-template-this/blob/master/forward_like.cpp}.
 \end{document}
