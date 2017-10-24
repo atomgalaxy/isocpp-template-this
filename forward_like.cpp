@@ -97,6 +97,7 @@ int main()
 #endif
 #ifdef ENSURE_FAILS_TO_COMPILE_3 // succeeds for some reason
   empty<fwd_t<int&, int&&>>{}; // check understanding
+  static_assert(false, "TODO: Why does this succeed?");
 #endif
 #ifdef ENSURE_FAILS_TO_COMPILE_4
   empty<fwl_t<int&, int&&>>{}; // check behavior
@@ -109,6 +110,7 @@ int main()
   static_assert(test_same_as_forward<int const&, int&>);
 #ifdef ENSURE_FAILS_TO_COMPILE_5 // this is binding a rvalue-ref to const&...
   empty<fwd_t<int const&, int&&>>{}; // check understanding
+  static_assert(false, "TODO: Why does this succeed?");
 #endif
 #ifdef ENSURE_FAILS_TO_COMPILE_6
   empty<fwl_t<int const&, int&&>>{}; // check behavior
@@ -156,8 +158,9 @@ int main()
   static_assert(test_same_as_forward<int const&&, int const&>);
   static_assert(test_same_as_forward<int const&&, int const&&>);
   static_assert(test_same_as_forward<int const&, int const&>);
-#ifdef ENSURE_FAILS_TO_COMPILE_19 // why does this succeed?
+#ifdef ENSURE_FAILS_TO_COMPILE_19
   empty<fwd_t<int const&, int const&&>>{}; // check understanding
+  static_assert(false, "TODO: Why does this succeed?");
 #endif
 #ifdef ENSURE_FAILS_TO_COMPILE_20
   empty<fwl_t<int const&, int const&&>>{}; // check behavior
