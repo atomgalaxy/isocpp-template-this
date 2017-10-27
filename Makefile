@@ -10,7 +10,7 @@ RUN_CXX=$(CXX) $(CXXFLAGS)
 all:
 
 all: template-this.pdf
-template-this.pdf: template-this.latex
+template-this.pdf: template-this.latex forward_like.cpp
 	pdflatex "$<"
 	pdflatex "$<"
 	pdflatex "$<"

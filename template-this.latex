@@ -101,10 +101,11 @@
 \newcommand\mypound{\protect\scalebox{0.8}{\raisebox{0.4ex}{\#}}}
 \newcommand{\CC}{C\nolinebreak\hspace{-.05em}\raisebox{0.4ex}{\resizebox{!}{0.6\height}{\bf++}}}
 \newcommand{\cplusplus}{\protect\CC}
+\newcommand{\this}{\code{this}}
 
 \date{}
 \title{%
-  Template \code{this}!\\
+  Template \this!\\
   \large (Divining the value category of \code{*this})}
 
 \newcommand{\emailaddressa}{ben at elbeno dot com}
@@ -134,7 +135,7 @@
 
 We propose a new mechanism for specifying the value category of an instance of a
 class which is visible from inside a member function of that class. In other
-words, a way to tell from within a member function whether one's \code{this}
+words, a way to tell from within a member function whether one's \this
 points to an rvalue or an lvalue, and whether it is \code{const} or
 \code{volatile}.
 
@@ -198,10 +199,10 @@ of a class \code{T}, taking the form \code{T [const] [volatile] [\&|\&\&] this}.
 To facilitate use in generic lambda expressions, this may also be formulated as
 \code{auto [const] [volatile] [\&|\&\&] this}.
 
-In all cases, the value category of \code{this} inside the member function is
+In all cases, the value category of \this inside the member function is
 exactly what the existing parameter rules would already imply. In other words,
 the \emph{cv-ref qualifiers} that stand after the function signature now
-explicitly apply to the \code{this} parameter.
+explicitly apply to the \this parameter.
 
 \begin{lstlisting}[language=cpp]
   // Within a class
@@ -235,9 +236,9 @@ explicitly apply to the \code{this} parameter.
   }
 \end{lstlisting}
 
-\section{What does \code{this} in a parameter list mean?}
+\section{What does \this in a parameter list mean?}
 
-The meaning of the different ways to pass \code{this} is the same as current
+The meaning of the different ways to pass \this is the same as current
 general parameter handling.
 
 The entries of this table should be read as if they are inside a class \code{T}:
@@ -273,19 +274,19 @@ In other words, \code{T} is \emph{not} a template parameter.
 \item \emph{[value]}: whether passing by value should be allowed is debatable,
   but seems desired for completeness and parity with inline friend functions.
 
-\item The interpretation of \code{this} in the method body differs, but only one
+\item The interpretation of \this in the method body differs, but only one
   definition for a given signature may be present, eg. one may define at most
   one of \code{void f()\&}, or \code{void f(T\& this)} or \code{void f()}, the
   first and last already being exclusive of one another.
 
 \end{itemize}
 
-\subsection*{How does templated \code{this} work?}
+\subsection*{How does templated \this work?}
 
 Using existing deduction rules for template parameters, which will deduce the
-type of \code{this} to something in the above table.
+type of \this to something in the above table.
 
-\subsection*{What does \code{this} mean in the body of a member function?}
+\subsection*{What does \this mean in the body of a member function?}
 
 It behaves exactly as a regular parameter declared in the same way.
 
@@ -293,7 +294,7 @@ It behaves exactly as a regular parameter declared in the same way.
 
 No exceptions to the above rules. If a particular constructor signature is not
 allowed by the language, it continues to be disallowed. We can already access
-already-initialized members in initialization lists, which means \code{this} is
+already-initialized members in initialization lists, which means \this is
 already available, even though it hasn't been completely constructed yet.
 
 \subsection*{What about pass-by-value methods?}
@@ -302,7 +303,7 @@ We think they are a logical extension of the mechanism, and would go a long way
 towards making methods as powerful as inline friend functions, with the only
 difference being the call syntax.
 
-One implication of this is that the \code{this} parameter would be move-constructed in
+One implication of this is that the \this parameter would be move-constructed in
 the case where the object is an rvalue, allowing you to treat chained builder
 methods that return a new object uniformly without having to resort to
 templates.
@@ -333,48 +334,47 @@ templates.
   };
 
   // this is optimally efficient as far as allocations go
-  std::string const x = (string_builder{{"asdf"}} * 5).bop();
+  std::string const x = (string_builder{{"asdf"}} * 5).bop().bop();
 \end{lstlisting}
 
-Of course, implementing this example with templated \code{this} methods would
+Of course, implementing this example with templated \this methods would
 have been more efficient due to just having fewer objects, but we got rid of all
 references in the program!
 
-\subsection*{\code{this} as a reference}
+\subsection*{\this as a reference}
 
-This paper turns \code{this} into a reference on an opt-in basis, which is in
+This paper turns \this into a reference on an opt-in basis, which is in
 line with the existing guidance that never-null pointers should be references if
 at all possible, and in this case, it is possible.
 
 We believe there would be no confusion, as in all cases, the value category of
-\code{this} is stated plainly in the parameter list, which is on the very same
+\this is stated plainly in the parameter list, which is on the very same
 screen.
 
 Teaching also becomes easier, as the meaning of what a ``const method'' is becomes
 more obvious to students.
 
 One can always obtain the address of the object by taking the address of the
-\code{this}.
+\this.
 
 \subsection*{Unification with \code{inline friend} functions}
 
-This proposal also makes \code{this} far less special. In fact, it completely
-unifies \code{inline friend} functions and class methods, with the differences
-being:
+This proposal also makes \this far less special. In fact, it almost unifies
+\code{inline friend} functions and class methods, with the differences being:
 
 \begin{itemize}
   \item the calling syntax (method vs free function)
   \item methods can be virtual
 \end{itemize}
 
-Basically, if the first parameter is called \code{this}, one can parse and
-instantiate the declaration with exactly the same rules as an \code{inline
-  friend}, except with a calling convention for methods.
+Basically, if the first parameter is called \this, one can parse and instantiate
+the declaration with exactly the same rules as an \code{inline friend}, except
+with a calling convention for methods.
 
 \subsection*{Opt-in uniform call syntax}
 
-The interaction of a \code{this} parameter with \code{friend} functions raises
-the possibility of opt-in uniform call syntax. Consider:
+The interaction of a \this parameter with \code{friend} functions raises the
+possibility of opt-in uniform call syntax. Consider:
 
 \begin{lstlisting}[language=cpp]
   class Foo
@@ -387,7 +387,7 @@ the possibility of opt-in uniform call syntax. Consider:
 \end{lstlisting}
 
 A reasonable interpretation for defining a member function with \code{friend}
-\emph{and} a \code{this} parameter is that it may be called as either a regular
+\emph{and} a \this parameter is that it may be called as either a regular
 member function, or as a friend function. That is, either syntax could work.
 
 \begin{lstlisting}[language=cpp]
@@ -396,11 +396,68 @@ member function, or as a friend function. That is, either syntax could work.
   ufcs(f, 42); // friend (free) function call syntax
 \end{lstlisting}
 
-\subsection*{\code{virtual}}
 
-We are not entirely sure how \code{virtual} and value calling conventions would
-work, so perhaps we can disallow that use case, if the pass-by-value signatures
-are kept in.
+\subsection{Free functions}
+
+Given the above, we might choose to extend uniform call syntax to free functions
+by allowing \this to appear in their signatures as well. Such (non-friend)
+functions would become callable with both syntaxes.
+
+Providing both a member and a free-function with the same signature makes the
+program ill-formed.
+
+\begin{lstlisting}[language=cpp]
+std::pair<int, int>& add(std::pair<int, int>& this,
+                         std::pair<int, int> const& other) {
+  // only public members are visible
+  first += other.first;
+  second += other.second;
+  return this;
+}
+
+auto x = pair{1, 2};
+x.add({3, 4});
+// x.first == 4, x.second == 6
+\end{lstlisting}
+
+
+\subsection{Why stop at the first parameter?}
+
+Now that we have uniform call syntax, we might reasonably ask ourselves what
+\this would mean if included as another, \emph{not the first}, parameter.
+
+The authors of this paper would argue that functions that do that, when called
+with regular invocation syntax, look exactly as if the parameter were named
+something else, except for the fact that the public members are in scope.
+
+When called with the method invocation syntax, the \this parameter is dropped
+from the signature regardless of its location.
+
+For some predicates, the reverse positioning of parameters makes perfect sense,
+as in the following example.
+
+\begin{lstlisting}[language=cpp]
+
+template <typename T>
+bool has_element(T const& element, std::list<T> const& this) {
+  return std::find(begin(), end(), element) != end();
+}
+std::list<int> my_list = {1, 2, 3, 4, 5, 6, 8};
+my_list.has_element(6); // true
+has_element(7, my_list); // false
+
+\end{lstlisting}
+
+
+\subsection*{\code{virtual} and \this as value}
+Virtual methods are always dispatched based on the type of the object the
+dot (or arrow, in case of pointer)-operator is being used on. Once the method is
+located, the parameter ``this'' is constructed with the appropriate (move or
+copy) constructor, and passed as the \this parameter. This might incur slicing.
+
+Effectively, we want to say that there is no change from current behavior, only
+a slight addition of a new overload that behaves the way a user would expect.
+
 
 \subsection*{Teachability implications}
 
@@ -408,7 +465,7 @@ Using \code{auto\&\& this} follows existing patterns for dealing with forwarding
 references.
 
 Optionally adding "this" as the first parameter fits with many programmers'
-mental model of the \code{this} pointer being the first parameter to member functions
+mental model of the \this pointer being the first parameter to member functions
 "under the hood" and is comparable to usage in other languages, e.g. Python and
 Rust.
 
@@ -418,7 +475,12 @@ It also works as a more obvious way to teach about how \code{std::bind} and
 \subsection*{ABI implications for \code{std::function} and related}
 
 If references and pointers do not have the same representation for methods, this
-effectively says "for the purposes of \code{this}, they do."
+effectively says "for the purposes of \this, they do."
+
+This matters because code written in the ``\this is a pointer'' syntax with the
+'\code{->}' notation needs to be assembly-identical to code written with the
+'\code{.}' notation, as the two are just different ways to implement a function
+with the same signature.
 
 \section{Implications for lambdas}
 
@@ -429,15 +491,15 @@ auto operator()(T\&\& this) \{ ...\ \}}.
 
 \subsection*{Interplays with capturing \code{[this]} and \code{[*this]}}
 
-As \code{this} is passed as an explicit parameter, it shadows members of the
+As \this is passed as an explicit parameter, it shadows members of the
 closure. That said, it's not possible to refer to the members of the closure
-using the \code{this} pointer of the lambda, since the closure has no defined
+using the \this pointer of the lambda, since the closure has no defined
 layout and the members referenced may not even be inserted into the closure, if
 there even is one.
 
 TBD: does init-capture obviate all need for \code{*this}?
 
-\subsection*{Do we allow \code{this} in lambdas that decay to a function pointer?}
+\subsection*{Do we allow \this in lambdas that decay to a function pointer?}
 
 If the lambda would otherwise decay to a function pointer, \code{\&this} shall
 have the value of that function pointer.
@@ -446,7 +508,7 @@ have the value of that function pointer.
 
 Yup. You're allowed to call \code{this(...)}.
 
-\subsection*{Expressions allowed for \code{this} in lambdas:}
+\subsection*{Expressions allowed for \this in lambdas}
 
 \begin{lstlisting}[language=cpp]
   this(...);      // call with appropriate signature
@@ -467,7 +529,7 @@ TBD: Do we believe this?
 
 TBD: A bunch of stuff in section 8.1.5 [expr.prim.lambda].
 
-TBD: A bunch of stuff in that \code{this} can appear as the first method
+TBD: A bunch of stuff in that \this can appear as the first method
 parameter.
 
 \section{Acknowledgments}
