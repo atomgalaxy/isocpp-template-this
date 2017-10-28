@@ -19,6 +19,10 @@ all: forward_like
 forward_like: forward_like.cpp
 	$(RUN_CXX) -o "$@" "$<"
 
+all: move_from_closure_example
+move_from_closure_example: move_from_closure_example.cpp
+	$(RUN_CXX) -o "$@" "$<"
+
 all: test-failing
 .PHONY: test-failing
 test-failing: 

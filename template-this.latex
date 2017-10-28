@@ -10,6 +10,7 @@
 \usepackage{courier}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{xspace}
 % \usepackage{libertine}%% Only as example for the romans/sans fonts
 \usepackage[scaled=0.85]{beramono}
 \usepackage{changepage}
@@ -101,11 +102,12 @@
 \newcommand\mypound{\protect\scalebox{0.8}{\raisebox{0.4ex}{\#}}}
 \newcommand{\CC}{C\nolinebreak\hspace{-.05em}\raisebox{0.4ex}{\resizebox{!}{0.6\height}{\bf++}}}
 \newcommand{\cplusplus}{\protect\CC}
-\newcommand{\this}{\code{this}}
+\newcommand{\this}{\code{this}\xspace}
+\newcommand{\cvref}{\emph{cv-ref qualifiers}\xspace}
 
 \date{}
 \title{%
-  Template \this!\\
+  Template \this\\% Andrew suggested dropping it.
   \large (Divining the value category of \code{*this})}
 
 \newcommand{\emailaddressa}{ben at elbeno dot com}
@@ -134,32 +136,38 @@
 \section{Introduction}
 
 We propose a new mechanism for specifying the value category of an instance of a
-class which is visible from inside a member function of that class. In other
+class, which is visible from inside a member function of that class. In other
 words, a way to tell from within a member function whether one's \this
 points to an rvalue or an lvalue, and whether it is \code{const} or
 \code{volatile}.
 
 \section{Motivation}
 
-The existing mechanism for this (adding a reference, rvalue-reference, const or
-volatile qualifier (\emph{cv-ref qualifiers}) suffixes to a member function)
-suffers from problems.
+The existing mechanism for this is to add reference, rvalue-reference, const or
+volatile qualifier (\cvref) suffixes to a member function. It suffers from the
+following problems.
 
 \subsection*{It is verbose.}
 
-A common task in writing a class is providing a "getter function" to access a
-contained member. Authors that care about performance want to provide getter
+A common task in writing a class is providing a \emph{getter function} to access
+a contained member. Authors that care about performance want to provide getter
 functions that take advantage of move semantics in the case where the class
 instance is an rvalue, and so end up writing several of these functions, which
-only differ in the cv-ref qualifiers.
+only differ in the \cvref.
 
 \subsection*{There is no way to write a reference qualifier for a lambda expression.}
 
 When writing a lambda expression, it is impossible to know whether it is safe to
-move from captured-by-copy members of the closure object. This impacts the
-performance of lambda expressions. One scenario where this is important arises
-when using lambda expressions as parts of a chain of asynchronous continuations
-that carry a value through a computation.
+move from captured-by-copy members of the closure object.
+
+This impacts the performance of lambda expressions. One scenario where this is
+important arises when using lambda expressions as parts of a chain of
+asynchronous continuations that carry a value through a computation.
+
+Example:
+\lstinputlisting[language=cpp,%
+                 linerange=START_CPP17-END_CPP17]{%
+                 move_from_closure_example.cpp}
 
 \subsection*{There is no way to refer to a lambda expression from within itself.}
 
@@ -167,8 +175,6 @@ The rationale in \cite{p0839} (\emph{Recursive lambdas} by Richard Smith) is val
 and we'd like to transclude it here.
 
 This paper provides an alternative to the proposed solution in that paper.
-
-TBD: Ask Richard if he'd like to contribute.
 
 \section{Design Considerations}
 
@@ -187,9 +193,12 @@ In addition to solving the existing problems, desirable properties of a solution
   notwithstanding) reference qualifiers, readable, noise-free function
   declarations are to be prized.
 
+\item The design should provide more uniformity to the language. With the
+  desires for uniform call syntax, the way we define functions and member functions
+  should be converging as much as possible.
+
 \end{itemize}
 
-TBD: more here.
 
 \section{Proposed Solution}
 
@@ -204,37 +213,36 @@ exactly what the existing parameter rules would already imply. In other words,
 the \emph{cv-ref qualifiers} that stand after the function signature now
 explicitly apply to the \this parameter.
 
+With this, the above "value carrier" example becomes:
+\lstinputlisting[language=cpp,%
+                 linerange=START_TEMPLATE_THIS-END_TEMPLATE_THIS]{%
+                 move_from_closure_example.cpp}
+
+
+Getter functions are the most affected. Here is an example of slightly more
+common code:
 \begin{lstlisting}[language=cpp]
-  // Within a class
+struct Person {
+  std::string name;
 
-  struct Person {
-    std::string name;
-
-    // Getter:
-    template <typename U>
-    decltype(auto) GetName(U&& this) {
-      // U can only deduce to Person (const, volatile, &, &&)
-      // because of visibility
-      return std::forward<T>(this).name;
-    }
-
-    // This template will likely instantiate the following functions:
-    // const std::string& GetName() const &;
-    // std::string& GetName() &;
-    // std::string&& GetName() &&;
-  };
-
-  void foo()
-  {
-    string s = "Hello, world!";
-
-    // Here, the closure object is an rvalue:
-    // the captured s will be correctly moved
-    bar([s] (auto&& this) {
-      return std::forward_like<decltype(this)>(s);  // see appendix A
-    }
+  template <typename U>
+  decltype(auto) GetName(U&& this) {
+    return std::forward<T>(this).name;
   }
+};
 \end{lstlisting}
+
+The template above will likely result in the instantiation of the member functions:
+
+\begin{lstlisting}[language=cpp]
+  std::string const& GetName() const& ;
+  std::string& GetName() &;
+  std::string&& GetName() &&;
+\end{lstlisting}
+
+These are all member functions we currently write by hand, and have to manually maintain
+their currect semantics.
+
 
 \section{What does \this in a parameter list mean?}
 
@@ -274,7 +282,7 @@ In other words, \code{T} is \emph{not} a template parameter.
 \item \emph{[value]}: whether passing by value should be allowed is debatable,
   but seems desired for completeness and parity with inline friend functions.
 
-\item The interpretation of \this in the method body differs, but only one
+\item The interpretation of \this in the member function body differs, but only one
   definition for a given signature may be present, eg. one may define at most
   one of \code{void f()\&}, or \code{void f(T\& this)} or \code{void f()}, the
   first and last already being exclusive of one another.
@@ -297,15 +305,15 @@ allowed by the language, it continues to be disallowed. We can already access
 already-initialized members in initialization lists, which means \this is
 already available, even though it hasn't been completely constructed yet.
 
-\subsection*{What about pass-by-value methods?}
+\subsection*{What about pass-by-value member functions?}
 
 We think they are a logical extension of the mechanism, and would go a long way
-towards making methods as powerful as inline friend functions, with the only
+towards making member functions as powerful as inline friend functions, with the only
 difference being the call syntax.
 
 One implication of this is that the \this parameter would be move-constructed in
 the case where the object is an rvalue, allowing you to treat chained builder
-methods that return a new object uniformly without having to resort to
+member functions that return a new object uniformly without having to resort to
 templates.
 
 \emph{Example:}
@@ -337,9 +345,9 @@ templates.
   std::string const x = (string_builder{{"asdf"}} * 5).bop().bop();
 \end{lstlisting}
 
-Of course, implementing this example with templated \this methods would
-have been more efficient due to just having fewer objects, but we got rid of all
-references in the program!
+Of course, implementing this example with templated \this member functions would have
+been slightly more efficient due to also saving on move constructions, but we
+got rid of all references in the program!
 
 \subsection*{\this as a reference}
 
@@ -351,7 +359,7 @@ We believe there would be no confusion, as in all cases, the value category of
 \this is stated plainly in the parameter list, which is on the very same
 screen.
 
-Teaching also becomes easier, as the meaning of what a ``const method'' is becomes
+Teaching also becomes easier, as the meaning of what a ``const member function'' is becomes
 more obvious to students.
 
 One can always obtain the address of the object by taking the address of the
@@ -360,16 +368,16 @@ One can always obtain the address of the object by taking the address of the
 \subsection*{Unification with \code{inline friend} functions}
 
 This proposal also makes \this far less special. In fact, it almost unifies
-\code{inline friend} functions and class methods, with the differences being:
+\code{inline friend} functions and class member functions, with the differences being:
 
 \begin{itemize}
-  \item the calling syntax (method vs free function)
-  \item methods can be virtual
+  \item the calling syntax (member function vs free function)
+  \item member functions can be virtual
 \end{itemize}
 
 Basically, if the first parameter is called \this, one can parse and instantiate
 the declaration with exactly the same rules as an \code{inline friend}, except
-with a calling convention for methods.
+with a calling convention for member functions.
 
 \subsection*{Opt-in uniform call syntax}
 
@@ -430,7 +438,7 @@ The authors of this paper would argue that functions that do that, when called
 with regular invocation syntax, look exactly as if the parameter were named
 something else, except for the fact that the public members are in scope.
 
-When called with the method invocation syntax, the \this parameter is dropped
+When called with the member function invocation syntax, the \this parameter is dropped
 from the signature regardless of its location.
 
 For some predicates, the reverse positioning of parameters makes perfect sense,
@@ -450,8 +458,8 @@ has_element(7, my_list); // false
 
 
 \subsection*{\code{virtual} and \this as value}
-Virtual methods are always dispatched based on the type of the object the
-dot (or arrow, in case of pointer)-operator is being used on. Once the method is
+Virtual member functions are always dispatched based on the type of the object the
+dot (or arrow, in case of pointer)-operator is being used on. Once the member function is
 located, the parameter ``this'' is constructed with the appropriate (move or
 copy) constructor, and passed as the \this parameter. This might incur slicing.
 
@@ -464,17 +472,17 @@ a slight addition of a new overload that behaves the way a user would expect.
 Using \code{auto\&\& this} follows existing patterns for dealing with forwarding
 references.
 
-Optionally adding "this" as the first parameter fits with many programmers'
+Optionally adding \this as the first parameter fits with many programmers'
 mental model of the \this pointer being the first parameter to member functions
 "under the hood" and is comparable to usage in other languages, e.g. Python and
 Rust.
 
 It also works as a more obvious way to teach about how \code{std::bind} and
-\code{std::function} with a method pointer work by making the pointer explicit.
+\code{std::function} with a member function pointer work by making the pointer explicit.
 
 \subsection*{ABI implications for \code{std::function} and related}
 
-If references and pointers do not have the same representation for methods, this
+If references and pointers do not have the same representation for member functions, this
 effectively says "for the purposes of \this, they do."
 
 This matters because code written in the ``\this is a pointer'' syntax with the
@@ -529,7 +537,7 @@ TBD: Do we believe this?
 
 TBD: A bunch of stuff in section 8.1.5 [expr.prim.lambda].
 
-TBD: A bunch of stuff in that \this can appear as the first method
+TBD: A bunch of stuff in that \this can appear as the first member function
 parameter.
 
 \section{Acknowledgments}
@@ -539,6 +547,8 @@ Thanks to the following for their help and guidance:
 \begin{itemize}
   \item Louis Dionne
   \item Marshall Clow
+  \item Andrew Bennieston
+  \item Tristan Brindle
 \end{itemize}
 
 \begin{thebibliography}{9}
@@ -594,4 +604,5 @@ It merely copies the cv-ref qualifiers from \code{From} to \code{To}.
 
 The entire listing of the code with all the tests is available at
 \url{https://github.com/atomgalaxy/isocpp-template-this/blob/master/forward_like.cpp}.
+
 \end{document}
