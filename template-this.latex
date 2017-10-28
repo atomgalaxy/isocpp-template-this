@@ -319,30 +319,30 @@ templates.
 \emph{Example:}
 
 \begin{lstlisting}[language=cpp]
-  class string_builder {
-    std::string s;
+class string_builder {
+  std::string s;
 
-    operator std::string (string_builder this) {
-      return std::move(s);
-    }
-    string_builder operator*(string_builder this, int n) {
-      assert(n > 0);
+  operator std::string (string_builder this) {
+    return std::move(s);
+  }
+  string_builder operator*(string_builder this, int n) {
+    assert(n > 0);
 
-      s.reserve(s.size() * n);
-      auto const size = s.size();
-      for (auto i = 0; i < n; ++i) {
-        s.append(s, 0, size);
-      }
-      return this;
+    s.reserve(s.size() * n);
+    auto const size = s.size();
+    for (auto i = 0; i < n; ++i) {
+      s.append(s, 0, size);
     }
-    string_builder bop(string_builder this) {
-      s.append("bop");
-      return this;
-    }
-  };
+    return this;
+  }
+  string_builder bop(string_builder this) {
+    s.append("bop");
+    return this;
+  }
+};
 
-  // this is optimally efficient as far as allocations go
-  std::string const x = (string_builder{{"asdf"}} * 5).bop().bop();
+// this is optimally efficient as far as allocations go
+std::string const x = (string_builder{{"asdf"}} * 5).bop().bop();
 \end{lstlisting}
 
 Of course, implementing this example with templated \this member functions would have
@@ -364,98 +364,6 @@ more obvious to students.
 
 One can always obtain the address of the object by taking the address of the
 \this.
-
-\subsection*{Unification with \code{inline friend} functions}
-
-This proposal also makes \this far less special. In fact, it almost unifies
-\code{inline friend} functions and class member functions, with the differences being:
-
-\begin{itemize}
-  \item the calling syntax (member function vs free function)
-  \item member functions can be virtual
-\end{itemize}
-
-Basically, if the first parameter is called \this, one can parse and instantiate
-the declaration with exactly the same rules as an \code{inline friend}, except
-with a calling convention for member functions.
-
-\subsection*{Opt-in uniform call syntax}
-
-The interaction of a \this parameter with \code{friend} functions raises the
-possibility of opt-in uniform call syntax. Consider:
-
-\begin{lstlisting}[language=cpp]
-  class Foo
-  {
-    friend auto ufcs(Foo this, int x)
-    {
-      // this function can be called two ways
-    }
-  };
-\end{lstlisting}
-
-A reasonable interpretation for defining a member function with \code{friend}
-\emph{and} a \this parameter is that it may be called as either a regular
-member function, or as a friend function. That is, either syntax could work.
-
-\begin{lstlisting}[language=cpp]
-  Foo f;
-  f.ufcs(42);  // member function call syntax
-  ufcs(f, 42); // friend (free) function call syntax
-\end{lstlisting}
-
-
-\subsection{Free functions}
-
-Given the above, we might choose to extend uniform call syntax to free functions
-by allowing \this to appear in their signatures as well. Such (non-friend)
-functions would become callable with both syntaxes.
-
-Providing both a member and a free-function with the same signature makes the
-program ill-formed.
-
-\begin{lstlisting}[language=cpp]
-std::pair<int, int>& add(std::pair<int, int>& this,
-                         std::pair<int, int> const& other) {
-  // only public members are visible
-  first += other.first;
-  second += other.second;
-  return this;
-}
-
-auto x = pair{1, 2};
-x.add({3, 4});
-// x.first == 4, x.second == 6
-\end{lstlisting}
-
-
-\subsection{Why stop at the first parameter?}
-
-Now that we have uniform call syntax, we might reasonably ask ourselves what
-\this would mean if included as another, \emph{not the first}, parameter.
-
-The authors of this paper would argue that functions that do that, when called
-with regular invocation syntax, look exactly as if the parameter were named
-something else, except for the fact that the public members are in scope.
-
-When called with the member function invocation syntax, the \this parameter is dropped
-from the signature regardless of its location.
-
-For some predicates, the reverse positioning of parameters makes perfect sense,
-as in the following example.
-
-\begin{lstlisting}[language=cpp]
-
-template <typename T>
-bool has_element(T const& element, std::list<T> const& this) {
-  return std::find(begin(), end(), element) != end();
-}
-std::list<int> my_list = {1, 2, 3, 4, 5, 6, 8};
-my_list.has_element(6); // true
-has_element(7, my_list); // false
-
-\end{lstlisting}
-
 
 \subsection*{\code{virtual} and \this as value}
 Virtual member functions are always dispatched based on the type of the object the
@@ -482,8 +390,8 @@ It also works as a more obvious way to teach about how \code{std::bind} and
 
 \subsection*{ABI implications for \code{std::function} and related}
 
-If references and pointers do not have the same representation for member functions, this
-effectively says "for the purposes of \this, they do."
+If references and pointers do not have the same representation for member
+functions, this effectively says "for the purposes of \this, they do."
 
 This matters because code written in the ``\this is a pointer'' syntax with the
 '\code{->}' notation needs to be assembly-identical to code written with the
@@ -494,7 +402,8 @@ with the same signature.
 
 Generic lambdas, should they take an \code{auto\&\& this} parameter, work
 according to existing rewriting rules: the \code{auto\&\& this} is turned into a
-"forwarding reference" and deduced as if it were inside a \code{template <typename T>
+"forwarding reference" and deduced as if it were inside a
+\code{template <typename T>
 auto operator()(T\&\& this) \{ ...\ \}}.
 
 \subsection*{Interplays with capturing \code{[this]} and \code{[*this]}}
@@ -539,6 +448,117 @@ TBD: A bunch of stuff in section 8.1.5 [expr.prim.lambda].
 
 TBD: A bunch of stuff in that \this can appear as the first member function
 parameter.
+
+\section{Further Directions}
+
+In this section, we explore the space of options that this feature might lead
+to. Please consider every section as its own mini-proposal - each one goes
+further into unexplored territory. However, knowing where a feature may lead is
+important for its assessment, which is why we are including this section.
+
+\subsection*{Unification with \code{inline friend} functions}
+
+This proposal also makes \this far less special. In fact, it almost unifies
+\code{inline friend} functions and class member functions, with the differences
+being:
+
+\begin{itemize}
+  \item the calling syntax (member function vs free function)
+  \item member functions can be virtual
+\end{itemize}
+
+Basically, if the first parameter is called \this, one can parse and instantiate
+the declaration with exactly the same rules as an \code{inline friend}, except
+with a calling convention for member functions.
+
+\subsection*{Opt-in uniform call syntax}
+
+The interaction of a \this parameter with \code{friend} functions raises the
+possibility of opt-in uniform call syntax. Consider:
+
+\begin{lstlisting}[language=cpp]
+class Foo
+{
+  friend auto ufcs(Foo this, int x)
+  {
+    // this function can be called two ways
+  }
+};
+\end{lstlisting}
+
+A reasonable interpretation for defining a member function with \code{friend}
+\emph{and} a \this parameter is that it may be called as either a regular
+member function, or as a friend function. That is, either syntax could work.
+
+\begin{lstlisting}[language=cpp]
+  Foo f;
+  f.ufcs(42);  // member function call syntax
+  ufcs(f, 42); // friend (free) function call syntax
+\end{lstlisting}
+
+In the past, there has been considerable discussion whether UFCS prefers the
+member or the free function. In this case, the member and the free function are
+the very same function, so that question is rendered irrelevant.
+
+\subsection{Free functions}
+
+Given the above, we might choose to extend uniform call syntax to free functions
+by allowing \this to appear in their signatures as well. Such (non-friend)
+functions would become callable with both syntaxes.
+
+Providing both a member and a free-function with the same signature makes the
+program ill-formed, to again avoid the issue of preference.
+
+\begin{lstlisting}[language=cpp]
+std::pair<int, int>& add(std::pair<int, int>& this,
+                         std::pair<int, int> const& other) {
+  // only public members are visible, since not a friend
+  first += other.first;
+  second += other.second;
+  return this;
+}
+
+auto x = pair{1, 2};
+x.add({3, 4});
+// x.first == 4, x.second == 6
+\end{lstlisting}
+
+There are legitimate reasons for disallowing this use-case. In c++17, one can
+always find the member function definitions in one specific place. This would
+remove this last refuge of obvious discoverability.
+
+However, we are already in the same situation with free functions. The reviewers
+of this paper have held positions both for and against allowing this. It is a
+question for the committee.
+
+\subsection{Why stop at the first parameter?}
+
+Now that we have uniform call syntax, we might reasonably ask ourselves what
+\this would mean if included as another, \emph{not the first}, parameter.
+
+The authors of this paper would argue that functions that do that, when called
+with regular invocation syntax, look exactly as if the parameter were named
+something else, except for the fact that the public members are in scope.
+
+When called with the member function invocation syntax, the \this parameter is
+dropped from the signature regardless of its location.
+
+For some predicates, the reverse positioning of parameters makes perfect sense,
+as in the following example.
+
+\begin{lstlisting}[language=cpp]
+
+template <typename T>
+bool has_element(T const& element, std::list<T> const& this) {
+  return std::find(begin(), end(), element) != end();
+}
+std::list<int> my_list = {1, 2, 3, 4, 5, 6, 8};
+my_list.has_element(6); // true
+has_element(7, my_list); // false
+
+\end{lstlisting}
+
+
 
 \section{Acknowledgments}
 
