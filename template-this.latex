@@ -367,9 +367,10 @@ One can always obtain the address of the object by taking the address of the
 
 \subsection*{\code{virtual} and \this as value}
 Virtual member functions are always dispatched based on the type of the object the
-dot (or arrow, in case of pointer)-operator is being used on. Once the member function is
-located, the parameter ``this'' is constructed with the appropriate (move or
-copy) constructor, and passed as the \this parameter. This might incur slicing.
+dot (or arrow -- in case of pointer) operator is being used on. Once the member
+function is located, the parameter \this is constructed with the appropriate
+(move or copy) constructor, and passed as the \this parameter. This might incur
+slicing.
 
 Effectively, we want to say that there is no change from current behavior, only
 a slight addition of a new overload that behaves the way a user would expect.
@@ -385,8 +386,9 @@ mental model of the \this pointer being the first parameter to member functions
 "under the hood" and is comparable to usage in other languages, e.g. Python and
 Rust.
 
-It also works as a more obvious way to teach about how \code{std::bind} and
-\code{std::function} with a member function pointer work by making the pointer explicit.
+It also works as a more obvious way to teach how \code{std::bind} and
+\code{std::function} work with a member function pointer work by making the
+pointer explicit.
 
 \subsection*{ABI implications for \code{std::function} and related}
 
@@ -412,7 +414,7 @@ As \this is passed as an explicit parameter, it shadows members of the
 closure. That said, it's not possible to refer to the members of the closure
 using the \this pointer of the lambda, since the closure has no defined
 layout and the members referenced may not even be inserted into the closure, if
-there even is one.
+one exists at all.
 
 TBD: does init-capture obviate all need for \code{*this}?
 
@@ -436,11 +438,12 @@ Yup. You're allowed to call \code{this(...)}.
   /* ... and all other things you're allowed to do with the lambda itself. */
 \end{lstlisting}
 
-TBD: I don't think we should say that you can now refer to the closure object.
-What you can do is deduce the value category of the closure object, and access
-its members in a way appropriate to it.
-
-TBD: Do we believe this?
+In the case of lambda expressions, the \this parameter still does allow one to
+refer to the members of the closure object directly (as it has no defined
+storage or layout, and its members do not have names). What it does instead is
+allow one to deduce the value category of the lambda and access its members,
+including the various call operators, in the way appropriate for the value
+category.
 
 \section{Impact on the Standard}
 
