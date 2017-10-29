@@ -304,6 +304,9 @@ allowed by the language, it continues to be disallowed. We can already access
 already-initialized members in initialization lists, which means \this is
 already available, even though it hasn't been completely constructed yet.
 
+That said, \this-by-value probably makes no sense for constructors, since it's a
+bit of a chicken-and-egg problem. That should probably not be allowed.
+
 \subsection*{What about pass-by-value member functions?}
 
 We think they are a logical extension of the mechanism, and would go a long way
@@ -447,6 +450,8 @@ accessible without ADL), as the following code compiles:
                  examples.cpp}
 %
 
+All this would do it unify the rules for free function templates and member
+function templates.
 
 \subsection*{Teachability implications}
 
@@ -560,6 +565,12 @@ provide a simpler migration path to the new syntax, but the new syntax does not
 deprecate the old, and so migration is completely unnecessary. In other words,
 the old syntax is perfectly fine, we just can't template on the type of \this
 unsing it.
+
+\subsection*{Is \code{auto\&\& this} allowed in member functions as well as
+lambdas?}
+
+Yes. \code{auto\&\& param\_name} has a well-defined meaning that is unified
+across the language. There is absolutely no reason to make it less so.
 
 \section{Impact on the Standard}
 
