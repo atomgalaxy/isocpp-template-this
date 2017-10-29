@@ -433,6 +433,11 @@ a slight addition of a new overload that behaves the way a user would expect.
 This paper does not propose a change from the current behavior - \code{virtual}
 templates are still not allowed.
 
+\subsection*{Can \code{static} member functions have a \this parameter?}
+
+No. Static member functions currently do not have an implicit \this parameter,
+and therefore have no reason to have an explicit one.
+
 \subsection*{Constraints on the type of \this in member function templates}
 
 \this behaves in all respects like a normal template parameter. Let us revisit
