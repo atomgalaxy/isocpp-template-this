@@ -78,6 +78,57 @@ void best_lambda_usage()
 }
 // END_CLOSURE_EXAMPLE_USAGE
 
+#ifdef THIS_PAPER
+// START_CAPTURE_STARTHIS
+struct X {
+  int operator()(int, int) const;
+  void g(int n) const;
+
+  auto f()
+  {
+    // capture *this by copy
+    auto h = [*this](auto&& this, int n)
+    {
+      // decltype(this) is decltype(h) [const][&|&&], depending on which call
+      // operator is invoked.
+      g(n); // members of X are still accessible
+      if (n % 2) {
+        // calls this lambda recursively. Forward the cv-ref qualifiers to
+        // sub-call.
+        return std::forward<decltype(this)>(this)(n + 1);
+      }
+      return operator()(n, 2); // calls X::operator().
+    };
+    return h;
+  }
+};
+// END_CAPTURE_STARTHIS
+#endif
+
+// START_MEMBER_REF_POINTER
+struct Y {
+  int f(int a, int b) const &;
+};
+static_assert(std::is_same_v<decltype(&Y::f), int (Y::*)(int, int) const &>);
+// END_MEMBER_REF_POINTER
+
+#ifdef THIS_PAPER
+// START_MEMBER_VAL_POINTER
+struct Z {
+  int f(Z const& this, int a, int b);
+  // same as `int f(int a, int b) const&;`
+  int g(Z this, int a, int b);
+};
+// f is still the same as Y::f
+static_assert(std::is_same_v<decltype(&Z::f), int (Z::*)(int, int) const &>);
+// but would this alternate syntax make any sense?
+static_assert(std::is_same_v<decltype(&Z::f), int (*)(Z::const&, int, int)>);
+// It allows us to specify the syntax for Z as a pass-by-value member function
+static_assert(std::is_same_v<decltype(&Z::g), int (*)(Z::, int, int)>);
+
+// END_MEMBER_VAL_POINTER
+#endif
+
 int main()
 {
   optimal_usage();

@@ -10,7 +10,7 @@ RUN_CXX=$(CXX) $(CXXFLAGS)
 all:
 
 all: template-this.pdf
-template-this.pdf: template-this.latex forward_like.cpp
+template-this.pdf: template-this.latex examples.cpp forward_like.cpp
 	pdflatex "$<"
 	pdflatex "$<"
 	pdflatex "$<"
@@ -19,8 +19,8 @@ all: forward_like
 forward_like: forward_like.cpp
 	$(RUN_CXX) -o "$@" "$<"
 
-all: move_from_closure_example
-move_from_closure_example: move_from_closure_example.cpp
+all: examples
+examples: examples.cpp
 	$(RUN_CXX) -o "$@" "$<"
 
 all: test-failing

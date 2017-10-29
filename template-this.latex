@@ -167,7 +167,7 @@ asynchronous continuations that carry a value through a computation.
 Example:
 \lstinputlisting[language=cpp,%
                  linerange=START_CPP17-END_CPP17]{%
-                 move_from_closure_example.cpp}
+                 examples.cpp}
 
 \subsection*{There is no way to refer to a lambda expression from within itself.}
 
@@ -216,7 +216,7 @@ explicitly apply to the \this parameter.
 With this, the above "value carrier" example becomes:
 \lstinputlisting[language=cpp,%
                  linerange=START_TEMPLATE_THIS-END_TEMPLATE_THIS]{%
-                 move_from_closure_example.cpp}
+                 examples.cpp}
 
 
 Getter functions are the most affected. Here is an example of slightly more
@@ -349,6 +349,30 @@ Of course, implementing this example with templated \this member functions would
 been slightly more efficient due to also saving on move constructions, but we
 got rid of all references in the program!
 
+\subsubsection*{Writing the function pointer types for such functions}
+
+Currently, we write member function pointers like so:
+\lstinputlisting[language=cpp,%
+                 linerange=START_MEMBER_REF_POINTER-END_MEMBER_REF_POINTER]{%
+                 examples.cpp}
+%
+All the member functions that take references already have a function pointer
+syntax - they are just alternate ways of writing functions we can already write.
+
+The only one that does not have such a syntax is the pass-by-value method.
+
+We would like to ask for suggestions for syntax for these function pointers. We
+give our first pass here:
+
+\lstinputlisting[language=cpp,%
+                 linerange=START_MEMBER_VAL_POINTER-END_MEMBER_VAL_POINTER]{%
+                 examples.cpp}
+%
+
+Such an approach unifies, to a degree, the member functions and the rest of the
+function type spaces, since it communicates that the first parameter is special, but also
+communicates its type and calling convention.
+
 \subsection*{\this as a reference}
 
 This paper turns \this into a reference on an opt-in basis, which is in
@@ -359,8 +383,8 @@ We believe there would be no confusion, as in all cases, the value category of
 \this is stated plainly in the parameter list, which is on the very same
 screen.
 
-Teaching also becomes easier, as the meaning of what a ``const member function'' is becomes
-more obvious to students.
+Teaching also becomes easier, as the meaning of what a ``const member function''
+is becomes more obvious to students.
 
 One can always obtain the address of the object by taking the address of the
 \this.
@@ -408,16 +432,6 @@ according to existing rewriting rules: the \code{auto\&\& this} is turned into a
 \code{template <typename T>
 auto operator()(T\&\& this) \{ ...\ \}}.
 
-\subsection*{Interplays with capturing \code{[this]} and \code{[*this]}}
-
-As \this is passed as an explicit parameter, it shadows members of the
-closure. That said, it's not possible to refer to the members of the closure
-using the \this pointer of the lambda, since the closure has no defined
-layout and the members referenced may not even be inserted into the closure, if
-one exists at all.
-
-TBD: does init-capture obviate all need for \code{*this}?
-
 \subsection*{Do we allow \this in lambdas that decay to a function pointer?}
 
 If the lambda would otherwise decay to a function pointer, \code{\&this} shall
@@ -444,6 +458,27 @@ storage or layout, and its members do not have names). What it does instead is
 allow one to deduce the value category of the lambda and access its members,
 including the various call operators, in the way appropriate for the value
 category.
+
+\subsection*{Interplays with capturing \code{[this]} and \code{[*this]}}
+
+\this is passed as a parameter, and parameters shadow. Therefore, \this inside the
+lambda body points to the closure, and its type is the type of the lambda, with
+the appropriate cv-ref qualifiers.
+
+One loses the ability to refer to the object captured by \code{*this} directly
+through its \code{*this} pointer, but the members are very much still in scope.
+
+Example:
+\lstinputlisting[language=cpp,%
+                 linerange=START_CAPTURE_STARTHIS-END_CAPTURE_STARTHIS]{%
+                 examples.cpp}
+%
+
+That said, it's not possible to refer to the members of the closure
+using the \this pointer of the lambda, since the closure has no defined
+layout, its members do not have names, and the members referenced may not even
+be inserted into the closure, if one exists at all. One refers to the members of
+the closure as now - they are just in scope.
 
 \section{Impact on the Standard}
 
@@ -503,7 +538,7 @@ In the past, there has been considerable discussion whether UFCS prefers the
 member or the free function. In this case, the member and the free function are
 the very same function, so that question is rendered irrelevant.
 
-\subsection{Free functions}
+\subsection*{Free functions}
 
 Given the above, we might choose to extend uniform call syntax to free functions
 by allowing \this to appear in their signatures as well. Such (non-friend)
@@ -534,7 +569,7 @@ However, we are already in the same situation with free functions. The reviewers
 of this paper have held positions both for and against allowing this. It is a
 question for the committee.
 
-\subsection{Why stop at the first parameter?}
+\subsection*{Why stop at the first parameter?}
 
 Now that we have uniform call syntax, we might reasonably ask ourselves what
 \this would mean if included as another, \emph{not the first}, parameter.
@@ -561,7 +596,35 @@ has_element(7, my_list); // false
 
 \end{lstlisting}
 
+\subsubsection*{How \this as any parameter would play with operator overloading}
 
+Operators are one of the parts of the language that already have UFCS! They go
+through less change than the rest of the language.
+
+Should one define a plus operator like so:
+
+\begin{lstlisting}[language=cpp]
+template <typename T, typename U>
+std::pair<T, U> operator+(std::pair<T, U> x, std::pair<T, U> this) {
+  return {x.first + first, x.second + second};
+}
+\end{lstlisting}
+
+From the point of view of the user of the operator, nothing at all changes, not
+even the ABI. The only thing that changes is how one writes the function.
+
+If called as \code{pair{1, 2}.operator+(pair{3, 4}}, the order of parameters is
+reversed, according to the above rules. (the call is actually
+\code{operator+(pair{3, 4}, pair{1, 2})}).
+
+The authors of this paper do not expect that the practice of writing code that
+works in surprising ways for little reason iike the above example will catch on,
+but we see no reason to prohibit it specifically for operators.
+
+\subsubsection*{Do we allow this-position swapping for member functions?}
+
+Only inline friends. The practice has no meaning for functions that do not opt
+in to UFCS.
 
 \section{Acknowledgments}
 
