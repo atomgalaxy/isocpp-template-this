@@ -297,6 +297,32 @@ type of \this to something in the above table.
 
 It behaves exactly as a regular parameter declared in the same way.
 
+\subsection*{Does this change overload resolution at all?}
+
+No. Non-templates still get priority over templates, et cetera.
+
+\subsection*{How do the explicit \this and the current, trailing \cvref
+interact?}
+
+Other than the pass-by-value member functions, which currently do not have a
+syntax to represent them, the explicit \this signatures are aliases for the
+trailing \cvref ones. They stand for the very same funtion.
+
+This means that rewriting the function signature in a different style should not
+change the ABI of your class, and you should also be able to implement a
+member function that is forward-declared with one syntax with the other.
+
+\subsection*{\this in a variadic parameter pack}
+
+For the fact that there is no obvious meaning to the expression
+\begin{lstlisting}[language=cpp]
+struct X {
+  template <typename... Ts>
+  void f(Ts... this);
+};
+\end{lstlisting}
+such a program is ill-formed.
+
 \subsection*{Constructors}
 
 No exceptions to the above rules. If a particular constructor signature is not
