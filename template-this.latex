@@ -153,7 +153,7 @@ A common task in writing a class is providing a \emph{getter function} to access
 a contained member. Authors that care about performance want to provide getter
 functions that take advantage of move semantics in the case where the class
 instance is an rvalue, and so end up writing several of these functions, which
-only differ in the \cvref.
+differ only in the \cvref.
 
 \subsection*{There is no way to write a reference qualifier for a lambda expression.}
 
@@ -210,7 +210,7 @@ To facilitate use in generic lambda expressions, this may also be formulated as
 
 In all cases, the value category of \this inside the member function is
 exactly what the existing parameter rules would already imply. In other words,
-the \emph{cv-ref qualifiers} that stand after the function signature now
+the \cvref that stand after the function signature now
 explicitly apply to the \this parameter.
 
 With this, the above "value carrier" example becomes:
@@ -241,7 +241,7 @@ The template above will likely result in the instantiation of the member functio
 \end{lstlisting}
 
 These are all member functions we currently write by hand, and have to manually maintain
-their currect semantics.
+their correct semantics.
 
 \section{What does \this in a parameter list mean?}
 
@@ -282,7 +282,7 @@ In other words, \code{T} is \emph{not} a template parameter.
   but seems desired for completeness and parity with inline friend functions.
 
 \item The interpretation of \this in the member function body differs, but only one
-  definition for a given signature may be present, eg. one may define at most
+  definition for a given signature may be present, e.g. one may define at most
   one of \code{void f()\&}, or \code{void f(T\& this)} or \code{void f()}, the
   first and last already being exclusive of one another.
 
@@ -299,14 +299,14 @@ It behaves exactly as a regular parameter declared in the same way.
 
 \subsection*{Does this change overload resolution at all?}
 
-No. Non-templates still get priority over templates, et cetera.
+No. Non-templates still get priority over templates, \emph{et cetera}.
 
 \subsection*{How do the explicit \this and the current, trailing \cvref
 interact?}
 
 Other than the pass-by-value member functions, which currently do not have a
 syntax to represent them, the explicit \this signatures are aliases for the
-trailing \cvref ones. They stand for the very same funtion.
+trailing \cvref ones. They stand for the very same function.
 
 This means that rewriting the function signature in a different style should not
 change the ABI of your class, and you should also be able to implement a
@@ -314,7 +314,7 @@ member function that is forward-declared with one syntax with the other.
 
 \subsection*{\this in a variadic parameter pack}
 
-For the fact that there is no obvious meaning to the expression
+Given the fact that there is no obvious meaning to the expression
 \begin{lstlisting}[language=cpp]
 struct X {
   template <typename... Ts>
@@ -430,7 +430,7 @@ a slight addition of a new overload that behaves the way a user would expect.
 
 \subsection*{\code{virtual} and templated member functions}
 
-This paper does not propose a change from the current behavior - \code{virtual}
+This paper does not propose a change from the current behavior -- \code{virtual}
 templates are still not allowed.
 
 \subsection*{Can \code{static} member functions have a \this parameter?}
@@ -481,7 +481,7 @@ accessible without ADL), as the following code compiles:
                  examples.cpp}
 %
 
-All this would do it unify the rules for free function templates and member
+All this would do is unify the rules for free function templates and member
 function templates.
 
 \subsection*{Teachability implications}
@@ -536,8 +536,8 @@ Yup. You're allowed to call \code{this(...)}.
   /* ... and all other things you're allowed to do with the lambda itself. */
 \end{lstlisting}
 
-In the case of lambda expressions, the \this parameter still does allow one to
-refer to the members of the closure object directly (as it has no defined
+In the case of lambda expressions, the \this parameter still does not allow one
+to refer to the members of the closure object directly (as it has no defined
 storage or layout, and its members do not have names). What it does instead is
 allow one to deduce the value category of the lambda and access its members,
 including the various call operators, in the way appropriate for the value
@@ -547,7 +547,7 @@ category.
 
 \this is passed as a parameter, and parameters shadow. Therefore, \this inside the
 lambda body points to the closure, and its type is the type of the lambda, with
-the appropriate cv-ref qualifiers.
+the appropriate \cvref.
 
 One loses the ability to refer to the object captured by \code{*this} directly
 through its \code{*this} pointer, but the members are very much still in scope.
@@ -684,9 +684,9 @@ x.add({3, 4});
 // x.first == 4, x.second == 6
 \end{lstlisting}
 
-There are legitimate reasons for disallowing this use-case. In c++17, one can
-always find the member function definitions in one specific place. This would
-remove this last refuge of obvious discoverability.
+There are legitimate reasons for disallowing this use-case. In \cplusplus{}17,
+one can always find the member function definitions in one specific place. This
+would remove this last refuge of obvious discoverability.
 
 However, we are already in the same situation with free functions. The reviewers
 of this paper have held positions both for and against allowing this. It is a
@@ -708,15 +708,13 @@ For some predicates, the reverse positioning of parameters makes perfect sense,
 as in the following example.
 
 \begin{lstlisting}[language=cpp]
-
 template <typename T>
 bool has_element(T const& element, std::list<T> const& this) {
-  return std::find(begin(), end(), element) != end();
+  return std::find(cbegin(), cend(), element) != cend();
 }
 std::list<int> my_list = {1, 2, 3, 4, 5, 6, 8};
 my_list.has_element(6); // true
 has_element(7, my_list); // false
-
 \end{lstlisting}
 
 \subsubsection*{How \this as any parameter would play with operator overloading}
@@ -736,15 +734,15 @@ std::pair<T, U> operator+(std::pair<T, U> x, std::pair<T, U> this) {
 From the point of view of the user of the operator, nothing at all changes, not
 even the ABI. The only thing that changes is how one writes the function.
 
-If called as \code{pair{1, 2}.operator+(pair{3, 4}}, the order of parameters is
+If called as \code{pair\{1, 2\}.operator+(pair\{3, 4\})}, the order of parameters is
 reversed, according to the above rules. (the call is actually
-\code{operator+(pair{3, 4}, pair{1, 2})}).
+\code{operator+(pair\{3, 4\}, pair\{1, 2\})}).
 
 The authors of this paper do not expect that the practice of writing code that
-works in surprising ways for little reason iike the above example will catch on,
+works in surprising ways for little reason like the above example will catch on,
 but we see no reason to prohibit it specifically for operators.
 
-\subsubsection*{Do we allow this-position swapping for member functions?}
+\subsubsection*{Do we allow \this-position swapping for member functions?}
 
 Only inline friends. The practice has no meaning for functions that do not opt
 in to UFCS.
@@ -768,7 +766,7 @@ Thanks to the following for their help and guidance:
 \emph{Recursive lambdas}\newline
 \url{http://wg21.link/p0839r0}
 
-\bibitem[P0018r3]{p0018r3}
+\bibitem[P0018R3]{p0018r3}
   H. Carter Edwards,
   Daveed Vandevoorde,
   Christian Trott,
@@ -779,7 +777,7 @@ Thanks to the following for their help and guidance:
   \emph{Capturing \code{*this} by value}\newline
   \url{http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0018r3.html}
 
-\bibitem[P0637r0]{p0637r0}
+\bibitem[P0637R0]{p0637r0}
   Thomas Köppe,
   \emph{Capture \code{*this} With Initializer}\newline
   \url{http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0637r0.html}
@@ -798,7 +796,7 @@ the closure members are not actually addressable using \code{this.member}.
 
 The proposed semantics are essentially the same as \code{std::forward}.
 If \code{From} and \code{To} are the same type, \code{forward\_like} and
-\code{forward} act exacty the same.
+\code{forward} act exactly the same.
 
 Proposed definition:
 \lstinputlisting[language=cpp,%
@@ -809,10 +807,10 @@ To do that, we require another facility in the standard library, \code{like}:
 \lstinputlisting[language=cpp,%
                  linerange=START_LIKE_DEF-END_LIKE_DEF]{%
                  forward_like.cpp}
-It merely copies the cv-ref qualifiers from \code{From} to \code{To}.
+It merely copies the \cvref from \code{From} to \code{To}.
 
 
-The entire listing of the code with all the tests is available at
+The entire listing of the code with all the tests is available at\\
 \url{https://github.com/atomgalaxy/isocpp-template-this/blob/master/forward_like.cpp}.
 
 \end{document}
