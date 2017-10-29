@@ -243,7 +243,6 @@ The template above will likely result in the instantiation of the member functio
 These are all member functions we currently write by hand, and have to manually maintain
 their currect semantics.
 
-
 \section{What does \this in a parameter list mean?}
 
 The meaning of the different ways to pass \this is the same as current
@@ -390,6 +389,7 @@ One can always obtain the address of the object by taking the address of the
 \this.
 
 \subsection*{\code{virtual} and \this as value}
+
 Virtual member functions are always dispatched based on the type of the object the
 dot (or arrow -- in case of pointer) operator is being used on. Once the member
 function is located, the parameter \this is constructed with the appropriate
@@ -398,6 +398,54 @@ slicing.
 
 Effectively, we want to say that there is no change from current behavior, only
 a slight addition of a new overload that behaves the way a user would expect.
+
+\subsection*{\code{virtual} and templated member functions}
+
+This paper does not propose a change from the current behavior - \code{virtual}
+templates are still not allowed.
+
+\subsection*{Constraints on the type of \this in member function templates}
+
+\this behaves in all respects like a normal template parameter. Let us revisit
+the \code{Person} example:
+\begin{lstlisting}[language=cpp]
+struct Person {
+  std::string name;
+
+  template <typename U>
+  decltype(auto) GetName(U&& this) {
+    return std::forward<U>(this).name;
+  }
+};
+\end{lstlisting}
+
+In regular usage as a member function, the only instantiations of \code{GetName}
+would be the ones where \code{U} is deduced to various flavors of \code{Person}.
+
+However, let us consider the case where a \code{Person} has a conversion to
+\code{PersonWrapper}:
+\begin{lstlisting}[language=cpp]
+struct PersonWrapper {
+  std::string name;
+  template <typename Person>
+  PersonWrapper(Person&& p) : name(std::forward<Person>(p).name) {}
+};
+\end{lstlisting}
+
+In that case, one could make the case that the following is valid code:
+\begin{lstlisting}[language=cpp]
+Person{"Arthur Dent"}.GetName<PersonWrapper>(); // returns "Arthur Dent"s
+\end{lstlisting}
+The above would instantiate \code{GetName} with a \code{PersonWrapper\&\&}
+parameter, which would be automatically constructed from \code{Person} due to
+the implicit conversion.
+
+This is already true for \code{friend} functions (though inline friends are not
+accessible without ADL), as the following code compiles:
+\lstinputlisting[language=cpp,%
+                 linerange=START_PERSONWRAPPER_17-END_PERSONWRAPPER_17]{%
+                 examples.cpp}
+%
 
 
 \subsection*{Teachability implications}
@@ -479,6 +527,39 @@ using the \this pointer of the lambda, since the closure has no defined
 layout, its members do not have names, and the members referenced may not even
 be inserted into the closure, if one exists at all. One refers to the members of
 the closure as now - they are just in scope.
+
+\subsection*{Should we allow \this to be a pointer?}
+
+In other words, does offering an alternative syntax for what we can already do
+with the current syntax make sense?
+
+\begin{lstlisting}[language=cpp]
+struct X {
+  // should we allow
+  int f(X* this);
+  // to mean
+  int f() &;
+  // and all the other syntaxes mentioned above, for the pointer (const,
+  // volatile)?
+};
+\end{lstlisting}
+
+It is the opinion of the authors that this should not be done, for the following
+reasons:
+\begin{enumerate}
+  \item We already have a syntax to do it.
+  \item Having a pointer is strictly less powerful than having a reference
+    (there are no pointers to rvalue references, you can always take the address
+    of the reference should you need the pointer, and \this is never null).
+  \item It kills the direction of uniform function call syntax (UCFS), since
+    pointers are a valid overloadable concrete type, separate from the class.
+\end{enumerate}
+
+The only argument that has been voiced for offering the pointer syntax is to
+provide a simpler migration path to the new syntax, but the new syntax does not
+deprecate the old, and so migration is completely unnecessary. In other words,
+the old syntax is perfectly fine, we just can't template on the type of \this
+unsing it.
 
 \section{Impact on the Standard}
 
