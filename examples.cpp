@@ -143,7 +143,7 @@ void use() { GetName<PersonWrapper>(Person{"Arthur Dent"}); }
 } // namespace personwrapper_17
 
 int main() {
-  use();
+  personwrapper_17::use();
   optimal_usage();
   best_lambda_usage();
 }
