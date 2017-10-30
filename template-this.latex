@@ -323,16 +323,11 @@ struct X {
 \end{lstlisting}
 such a program is ill-formed.
 
-\subsection*{Constructors}
+\subsection*{Constructors and Destructors}
 
-There are no exceptions to the above rules. If a particular constructor
-signature is not allowed by the language, it continues to be disallowed. We can
-currently access already-initialized members in initialization lists, which means
-\this is available for use, even though it hasn't been completely constructed
-yet.
-
-That said, \this-by-value does not seem to make sense for constructors, since it's a
-bit of a chicken-and-egg problem, and should not be allowed.
+No change to current rules. Currently, one cannot have different cv-ref versions
+of either, so you cannot take \this as any parameter to a constructor or
+destructor.
 
 \subsection*{What about pass-by-value member functions?}
 
@@ -343,8 +338,7 @@ with the only difference being the call syntax.
 One implication of this is that the \this parameter would be move-constructed in
 cases where the object is an rvalue, allowing you to treat chained builder
 member functions that return a new object uniformly without having to resort to
-templates.
-
+templates.  
 \emph{Example:}
 
 \begin{lstlisting}[language=cpp]
@@ -769,8 +763,7 @@ struct Person {
 In this case
 \begin{enumerate}
   \item \this does not change the current meaning in any context.
-  \item Mutually recursive lambdas have a way of easily referring to one
-    another.
+%  \item Mutually recursive lambdas have a way of easily referring to one another.
   \item It is not as terse, as you need another way to call the function
     parameter.
 
@@ -854,3 +847,12 @@ The entire listing of the code with all the tests is available at\\
 \url{https://github.com/atomgalaxy/isocpp-template-this/blob/master/forward_like.cpp}.
 
 \end{document}
+
+% specify lookup rules in the x.f(y) b
+% dietmar: how about solving it with a cv-ref template kind, instead of T&& -
+% qualifier templates
+%
+% Objection from everyone:
+% - 'this' needs to be a pointer - it's a great way to have it die in EWG
+% - 'this name' is more acceptable, but still quite a few people hate it
+%
