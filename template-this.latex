@@ -749,6 +749,36 @@ prohibit this construction specifically for operators.
 We allow it for \code{inline friend} functions only. The practice has no meaning
 for functions that do not opt in to UFCS.
 
+\section{FAQ}
+
+\subsection*{Do you really have to redefine what \this means in functions?}
+
+The authors find that to be the best option. It seems to unify many aspects of
+the language (\this is far less special), at the cost of breaking the current
+idea that \this always means the same thing.
+
+An alternative proposal would be to use \this as an adjective, like so:
+
+\begin{lstlisting}[language=cpp]
+struct Person {
+  std::string name;
+  decltype(auto) GetName(auto&& this person) {
+    std::forward<decltype(person)>(person).name;
+  }
+};
+\end{lstlisting}
+
+This would effectively give a name to the reference that has the correct type
+and cv-qualifications, and keep `this` as-is. It also does not introduce any new
+syntax, same as the current proposal above.
+
+The authors don't find this other syntax as compellingly short, though, and it
+does not unify parameters quite as nicely. It does mean nested lambdas have a
+way of mutually calling each other, though.
+
+If there is much preference for this option, the authors will write a paper
+exploring where this other option may lead.
+
 \section{Acknowledgments}
 
 Thanks to the following for their help and guidance:

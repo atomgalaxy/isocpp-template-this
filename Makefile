@@ -61,5 +61,6 @@ $(call def-test-failing,22)
 
 clean:
 	rm forward_like
+	fm examples
 
 
