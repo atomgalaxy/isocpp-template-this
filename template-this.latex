@@ -136,22 +136,21 @@
 \section{Introduction}
 
 We propose a new mechanism for specifying the value category of an instance of a
-class, which is visible from inside a member function of that class. In other
-words, a way to tell from within a member function whether one's \this
-points to an rvalue or an lvalue, and whether it is \code{const} or
-\code{volatile}.
+class, which is visible from inside a member function of that class -- in other
+words, a way to tell from within a member function whether one's \this points to
+an rvalue or an lvalue, and whether it is \code{const} or \code{volatile}.
 
 \section{Motivation}
 
 The existing mechanism for this is to add reference, rvalue-reference, const or
 volatile qualifier (\cvref) suffixes to a member function. It suffers from the
-following problems.
+following problems:
 
 \subsection*{It is verbose.}
 
 A common task in writing a class is providing a \emph{getter function} to access
 a contained member. Authors that care about performance want to provide getter
-functions that take advantage of move semantics in the case where the class
+functions that take advantage of move semantics in cases where the class
 instance is an rvalue, and so end up writing several of these functions, which
 differ only in the \cvref.
 
@@ -160,8 +159,8 @@ differ only in the \cvref.
 When writing a lambda expression, it is impossible to know whether it is safe to
 move from captured-by-copy members of the closure object.
 
-This impacts the performance of lambda expressions. One scenario where this is
-important arises when using lambda expressions as parts of a chain of
+This impacts the performance of lambda expressions. One scenario where this
+becomes important is using lambda expressions as parts of a chain of
 asynchronous continuations that carry a value through a computation.
 
 Example:
@@ -240,10 +239,10 @@ The template above will likely result in the instantiation of the member functio
   std::string&& GetName() &&;
 \end{lstlisting}
 
-These are all member functions we currently write by hand, and have to manually maintain
-their correct semantics.
+These are all member functions we currently write by hand, and whose correct
+semantics must be manually maintained.
 
-\section{What does \this in a parameter list mean?}
+\section{What Does \this in a Parameter List Mean?}
 
 The meaning of the different ways to pass \this is the same as current
 general parameter handling.
@@ -273,24 +272,25 @@ In other words, \code{T} is \emph{not} a template parameter.
   \code{void f(T const volatile\&\& this)} & \code{void f() const volatile\&\&} &\\
   \hline
 \end{tabular}
-
+\newpage
 \emph{Notes:}
 
 \begin{itemize}
 
 \item \emph{[value]}: whether passing by value should be allowed is debatable,
-  but seems desired for completeness and parity with inline friend functions.
+  but seems desirable for completeness and parity with \code{inline friend}
+  functions.
 
-\item The interpretation of \this in the member function body differs, but only one
-  definition for a given signature may be present, e.g. one may define at most
-  one of \code{void f()\&}, or \code{void f(T\& this)} or \code{void f()}, the
-  first and last already being exclusive of one another.
+\item The interpretation of \this in the member function body differs, but only
+  one definition for a given signature may be present -- e.g. one may define at
+  most one of \code{void f()\&}, or \code{void f(T\& this)} or \code{void f()},
+  the first and last already being exclusive of one another.
 
 \end{itemize}
 
 \subsection*{How does templated \this work?}
 
-Using existing deduction rules for template parameters, which will deduce the
+It uses existing deduction rules for template parameters, which will deduce the
 type of \this to something in the above table.
 
 \subsection*{What does \this mean in the body of a member function?}
@@ -304,13 +304,13 @@ No. Non-templates still get priority over templates, \emph{et cetera}.
 \subsection*{How do the explicit \this and the current, trailing \cvref
 interact?}
 
-Other than the pass-by-value member functions, which currently do not have a
-syntax to represent them, the explicit \this signatures are aliases for the
-trailing \cvref ones. They stand for the very same function.
+Other than the pass-by-value member functions, which currently do not have
+syntax to represent them, the explicit \this signatures are aliases for those with
+trailing \cvref. They stand for the very same functions.
 
 This means that rewriting the function signature in a different style should not
 change the ABI of your class, and you should also be able to implement a
-member function that is forward-declared with one syntax with the other.
+member function that is forward-declared with one syntax using the other.
 
 \subsection*{\this in a variadic parameter pack}
 
@@ -325,22 +325,23 @@ such a program is ill-formed.
 
 \subsection*{Constructors}
 
-No exceptions to the above rules. If a particular constructor signature is not
-allowed by the language, it continues to be disallowed. We can already access
-already-initialized members in initialization lists, which means \this is
-already available, even though it hasn't been completely constructed yet.
+There are no exceptions to the above rules. If a particular constructor
+signature is not allowed by the language, it continues to be disallowed. We can
+currently access already-initialized members in initialization lists, which means
+\this is available for use, even though it hasn't been completely constructed
+yet.
 
-That said, \this-by-value probably makes no sense for constructors, since it's a
-bit of a chicken-and-egg problem. That should probably not be allowed.
+That said, \this-by-value does not seem to make sense for constructors, since it's a
+bit of a chicken-and-egg problem, and should not be allowed.
 
 \subsection*{What about pass-by-value member functions?}
 
 We think they are a logical extension of the mechanism, and would go a long way
-towards making member functions as powerful as inline friend functions, with the only
-difference being the call syntax.
+towards making member functions as powerful as \code{inline friend} functions,
+with the only difference being the call syntax.
 
 One implication of this is that the \this parameter would be move-constructed in
-the case where the object is an rvalue, allowing you to treat chained builder
+cases where the object is an rvalue, allowing you to treat chained builder
 member functions that return a new object uniformly without having to resort to
 templates.
 
@@ -373,9 +374,9 @@ class string_builder {
 std::string const x = (string_builder{{"asdf"}} * 5).bop().bop();
 \end{lstlisting}
 
-Of course, implementing this example with templated \this member functions would have
-been slightly more efficient due to also saving on move constructions, but we
-got rid of all references in the program!
+Of course, implementing this example with templated \this member functions would
+have been slightly more efficient due to also saving on move constructions, but
+the by-value \this usage makes for simpler code.
 
 \subsubsection*{Writing the function pointer types for such functions}
 
@@ -389,7 +390,7 @@ syntax - they are just alternate ways of writing functions we can already write.
 
 The only one that does not have such a syntax is the pass-by-value method.
 
-We would like to ask for suggestions for syntax for these function pointers. We
+We are asking for suggestions for syntax for these function pointers. We
 give our first pass here:
 
 \lstinputlisting[language=cpp,%
@@ -398,40 +399,39 @@ give our first pass here:
 %
 
 Such an approach unifies, to a degree, the member functions and the rest of the
-function type spaces, since it communicates that the first parameter is special, but also
-communicates its type and calling convention.
+function type spaces, since it communicates not only that the first parameter is
+special, but also its type and calling convention.
 
 \subsection*{\this as a reference}
 
 This paper turns \this into a reference on an opt-in basis, which is in
-line with the existing guidance that never-null pointers should be references if
-at all possible, and in this case, it is possible.
+line with existing guidelines that never-null pointers should be references if
+at all possible; in this case, it is possible.
 
-We believe there would be no confusion, as in all cases, the value category of
-\this is stated plainly in the parameter list, which is on the very same
+We believe there would be no confusion, since in all cases, the value category
+of \this is stated plainly in the parameter list, which is on the very same
 screen.
 
-Teaching also becomes easier, as the meaning of what a ``const member function''
-is becomes more obvious to students.
+This also makes the definition of ``\code{const} member function'' more obvious,
+meaning it can more easily be taught to students.
 
-One can always obtain the address of the object by taking the address of the
-\this.
+One can always obtain the address of the object by taking the address of \this.
 
 \subsection*{\code{virtual} and \this as value}
 
 Virtual member functions are always dispatched based on the type of the object the
-dot (or arrow -- in case of pointer) operator is being used on. Once the member
+dot -- or arrow, in case of pointer -- operator is being used on. Once the member
 function is located, the parameter \this is constructed with the appropriate
-(move or copy) constructor, and passed as the \this parameter. This might incur
+move or copy constructor and passed as the \this parameter, which might incur
 slicing.
 
-Effectively, we want to say that there is no change from current behavior, only
+Effectively, there is no change from current behavior -- only
 a slight addition of a new overload that behaves the way a user would expect.
 
 \subsection*{\code{virtual} and templated member functions}
 
-This paper does not propose a change from the current behavior -- \code{virtual}
-templates are still not allowed.
+This paper does not propose a change from the current behavior. \code{virtual}
+templates are still disallowed.
 
 \subsection*{Can \code{static} member functions have a \this parameter?}
 
@@ -440,7 +440,7 @@ and therefore have no reason to have an explicit one.
 
 \subsection*{Constraints on the type of \this in member function templates}
 
-\this behaves in all respects like a normal template parameter. Let us revisit
+In all respects, \this behaves like a normal template parameter. Let us revisit
 the \code{Person} example:
 \begin{lstlisting}[language=cpp]
 struct Person {
@@ -456,7 +456,7 @@ struct Person {
 In regular usage as a member function, the only instantiations of \code{GetName}
 would be the ones where \code{U} is deduced to various flavors of \code{Person}.
 
-However, let us consider the case where a \code{Person} has a conversion to
+However, let us consider a case where a \code{Person} has a conversion to
 \code{PersonWrapper}:
 \begin{lstlisting}[language=cpp]
 struct PersonWrapper {
@@ -466,7 +466,7 @@ struct PersonWrapper {
 };
 \end{lstlisting}
 
-In that case, one could make the case that the following is valid code:
+In this case, one could make the argument that the following is valid code:
 \begin{lstlisting}[language=cpp]
 Person{"Arthur Dent"}.GetName<PersonWrapper>(); // returns "Arthur Dent"s
 \end{lstlisting}
@@ -474,8 +474,9 @@ The above would instantiate \code{GetName} with a \code{PersonWrapper\&\&}
 parameter, which would be automatically constructed from \code{Person} due to
 the implicit conversion.
 
-This is already true for \code{friend} functions (though inline friends are not
-accessible without ADL), as the following code compiles:
+This is already true for \code{friend} functions (though \code{inline friend}
+functions are not accessible without ADL), illustrated by the fact that
+following code compiles:
 \lstinputlisting[language=cpp,%
                  linerange=START_PERSONWRAPPER_17-END_PERSONWRAPPER_17]{%
                  examples.cpp}
@@ -495,8 +496,8 @@ mental model of the \this pointer being the first parameter to member functions
 Rust.
 
 It also works as a more obvious way to teach how \code{std::bind} and
-\code{std::function} work with a member function pointer work by making the
-pointer explicit.
+\code{std::function} work with a member function pointer by making the pointer
+explicit.
 
 \subsection*{ABI implications for \code{std::function} and related}
 
@@ -505,13 +506,13 @@ functions, this effectively says "for the purposes of \this, they do."
 
 This matters because code written in the ``\this is a pointer'' syntax with the
 '\code{->}' notation needs to be assembly-identical to code written with the
-'\code{.}' notation, as the two are just different ways to implement a function
+'\code{.}' notation; the two are just different ways to implement a function
 with the same signature.
 
-\section{Implications for lambdas}
+\section{Implications for Lambda Expressions}
 
 Generic lambdas, should they take an \code{auto\&\& this} parameter, work
-according to existing rewriting rules: the \code{auto\&\& this} is turned into a
+according to existing rewriting rules. The \code{auto\&\& this} is turned into a
 "forwarding reference" and deduced as if it were inside a
 \code{template <typename T>
 auto operator()(T\&\& this) \{ ...\ \}}.
@@ -523,7 +524,7 @@ have the value of that function pointer.
 
 \subsection*{Does this allow recursion in lambdas?}
 
-Yup. You're allowed to call \code{this(...)}.
+Yes. You're allowed to call \code{this(...)}.
 
 \subsection*{Expressions allowed for \this in lambdas}
 
@@ -536,33 +537,32 @@ Yup. You're allowed to call \code{this(...)}.
   /* ... and all other things you're allowed to do with the lambda itself. */
 \end{lstlisting}
 
-In the case of lambda expressions, the \this parameter still does not allow one
-to refer to the members of the closure object directly (as it has no defined
-storage or layout, and its members do not have names). What it does instead is
-allow one to deduce the value category of the lambda and access its members,
-including the various call operators, in the way appropriate for the value
-category.
+Within lambda expressions, the \this parameter still does not allow one to refer
+to the members of the closure object, which has no defined storage or layout,
+nor do its members have names. Instead it allows one to deduce the value
+category of the lambda and access its members -- including various call operators
+-- in the way appropriate for the value category.
 
 \subsection*{Interplays with capturing \code{[this]} and \code{[*this]}}
 
 \this is passed as a parameter, and parameters shadow. Therefore, \this inside the
-lambda body points to the closure, and its type is the type of the lambda, with
+lambda body points to the closure, and its type is the type of the lambda with
 the appropriate \cvref.
 
 One loses the ability to refer to the object captured by \code{*this} directly
 through its \code{*this} pointer, but the members are very much still in scope.
 
-Example:
+\emph{Example:}
 \lstinputlisting[language=cpp,%
                  linerange=START_CAPTURE_STARTHIS-END_CAPTURE_STARTHIS]{%
                  examples.cpp}
 %
 
-That said, it's not possible to refer to the members of the closure
-using the \this pointer of the lambda, since the closure has no defined
-layout, its members do not have names, and the members referenced may not even
-be inserted into the closure, if one exists at all. One refers to the members of
-the closure as now - they are just in scope.
+That said, it's not possible to refer to members of the closure using the \this
+pointer of the lambda -- the closure has no defined layout, its members do not
+have names, and the members referenced may not even be inserted into the
+closure, if one exists at all. Members of the closure may be used as they are
+currently - they are simply in scope.
 
 \subsection*{Should we allow \this to be a pointer?}
 
@@ -580,22 +580,21 @@ struct X {
 };
 \end{lstlisting}
 
-It is the opinion of the authors that this should not be done, for the following
-reasons:
+We believe that this should not be done, for multiple reasons:
 \begin{enumerate}
-  \item We already have a syntax to do it.
-  \item Having a pointer is strictly less powerful than having a reference
-    (there are no pointers to rvalue references, you can always take the address
-    of the reference should you need the pointer, and \this is never null).
+  \item We already have the syntax to do it.
+  \item Having a pointer is strictly less powerful than having a reference.
+    There are no pointers to rvalue references, the address of a reference can
+    always be taken should there be a need for the pointer, and \this is never
+    null.
   \item It kills the direction of uniform function call syntax (UCFS), since
     pointers are a valid overloadable concrete type, separate from the class.
 \end{enumerate}
 
-The only argument that has been voiced for offering the pointer syntax is to
-provide a simpler migration path to the new syntax, but the new syntax does not
-deprecate the old, and so migration is completely unnecessary. In other words,
-the old syntax is perfectly fine, we just can't template on the type of \this
-unsing it.
+The only argument raised to us for offering the pointer syntax is to provide a
+simpler migration path to the new syntax; however, the new syntax does not
+deprecate the old, so migration is unnecessary. In other words, the old syntax
+is perfectly fine. We just use it can't to template on the type of \this.
 
 \subsection*{Is \code{auto\&\& this} allowed in member functions as well as
 lambdas?}
@@ -612,16 +611,16 @@ parameter.
 
 \section{Further Directions}
 
-In this section, we explore the space of options that this feature might lead
-to. Please consider every section as its own mini-proposal - each one goes
-further into unexplored territory. However, knowing where a feature may lead is
-important for its assessment, which is why we are including this section.
+In this section, we explore the options that this feature can potentially lead
+to. Each section should be considered its own mini-proposal, since each one goes
+further into unexplored territory. However, when assessing a feature, it is
+important to know where it may lead, thus we include this section.
 
 \subsection*{Unification with \code{inline friend} functions}
 
-This proposal also makes \this far less special. In fact, it almost unifies
-\code{inline friend} functions and class member functions, with the differences
-being:
+This proposal makes \this far less special. In fact, it almost unifies
+\code{inline friend} functions and class member functions, with the only
+differences being:
 
 \begin{itemize}
   \item the calling syntax (member function vs free function)
@@ -648,7 +647,7 @@ class Foo
 \end{lstlisting}
 
 A reasonable interpretation for defining a member function with \code{friend}
-\emph{and} a \this parameter is that it may be called as either a regular
+\emph{and} a \this parameter is that it may be called either as a regular
 member function, or as a friend function. That is, either syntax could work.
 
 \begin{lstlisting}[language=cpp]
@@ -657,18 +656,15 @@ member function, or as a friend function. That is, either syntax could work.
   ufcs(f, 42); // friend (free) function call syntax
 \end{lstlisting}
 
-In the past, there has been considerable discussion whether UFCS prefers the
+Previously, there has been considerable discussion whether UFCS prefers the
 member or the free function. In this case, the member and the free function are
 the very same function, so that question is rendered irrelevant.
 
 \subsection*{Free functions}
 
 Given the above, we might choose to extend uniform call syntax to free functions
-by allowing \this to appear in their signatures as well. Such (non-friend)
+by allowing \this to appear in their signatures as well. Such non-friend
 functions would become callable with both syntaxes.
-
-Providing both a member and a free-function with the same signature makes the
-program ill-formed, to again avoid the issue of preference.
 
 \begin{lstlisting}[language=cpp]
 std::pair<int, int>& add(std::pair<int, int>& this,
@@ -684,28 +680,35 @@ x.add({3, 4});
 // x.first == 4, x.second == 6
 \end{lstlisting}
 
-There are legitimate reasons for disallowing this use-case. In \cplusplus{}17,
-one can always find the member function definitions in one specific place. This
-would remove this last refuge of obvious discoverability.
+There are legitimate reasons to disallow adding \this to free functions. In
+\cplusplus{}17, member function definitions are in a specific place; allowing
+this use case erodes member function discoverability.
 
-However, we are already in the same situation with free functions. The reviewers
-of this paper have held positions both for and against allowing this. It is a
-question for the committee.
+However, we are already in the same situation with free functions. In feedback,
+we have heard arguments both for and against allowing this. It is a question for
+the committee.
+
+Providing both a member and a free function with the same signature makes the
+program ill-formed in order to avoid the issue of preference.
 
 \subsection*{Why stop at the first parameter?}
 
 Now that we have uniform call syntax, we might reasonably ask ourselves what
-\this would mean if included as another, \emph{not the first}, parameter.
+\this would mean if included as another -- \emph{not the first} -- parameter.
 
-The authors of this paper would argue that functions that do that, when called
-with regular invocation syntax, look exactly as if the parameter were named
-something else, except for the fact that the public members are in scope.
+We would argue the following for functions that include \this as a second or
+subsequent parameter:
 
-When called with the member function invocation syntax, the \this parameter is
-dropped from the signature regardless of its location.
+\begin{itemize}
+\item When called with free function invocation syntax, they behave as they
+  would if the parameter were named something else, except that public members
+  are in scope within the function.
+\item When called with member function invocation syntax, the \this
+  parameter is dropped from the signature regardless of its location.
+\end{itemize}
 
 For some predicates, the reverse positioning of parameters makes perfect sense,
-as in the following example.
+as in the following example:
 
 \begin{lstlisting}[language=cpp]
 template <typename T>
@@ -719,10 +722,10 @@ has_element(7, my_list); // false
 
 \subsubsection*{How \this as any parameter would play with operator overloading}
 
-Operators are one of the parts of the language that already have UFCS! They go
-through less change than the rest of the language.
+Operators are one of the parts of the language that already have UFCS. They
+undergo fewer changes than the rest of the language.
 
-Should one define a plus operator like so:
+Consider an \code{operator+} that is defined as follows:
 
 \begin{lstlisting}[language=cpp]
 template <typename T, typename U>
@@ -731,21 +734,20 @@ std::pair<T, U> operator+(std::pair<T, U> x, std::pair<T, U> this) {
 }
 \end{lstlisting}
 
-From the point of view of the user of the operator, nothing at all changes, not
-even the ABI. The only thing that changes is how one writes the function.
+From the caller's point of view, nothing at all changes, not even the ABI. The
+only thing that changes is how the function is written.
 
-If called as \code{pair\{1, 2\}.operator+(pair\{3, 4\})}, the order of parameters is
-reversed, according to the above rules. (the call is actually
-\code{operator+(pair\{3, 4\}, pair\{1, 2\})}).
+If called as \code{pair\{1, 2\}.operator+(pair\{3, 4\})}, the order of
+parameters is reversed according to the code above. The call is actually
+\code{operator+(pair\{3, 4\}, pair\{1, 2\})}.
 
-The authors of this paper do not expect that the practice of writing code that
-works in surprising ways for little reason like the above example will catch on,
-but we see no reason to prohibit it specifically for operators.
+We do not advocate subverting caller expectations, but we see no reason to
+prohibit this construction specifically for operators.
 
 \subsubsection*{Do we allow \this-position swapping for member functions?}
 
-Only inline friends. The practice has no meaning for functions that do not opt
-in to UFCS.
+We allow it for \code{inline friend} functions only. The practice has no meaning
+for functions that do not opt in to UFCS.
 
 \section{Acknowledgments}
 
@@ -757,6 +759,7 @@ Thanks to the following for their help and guidance:
   \item Andrew Bennieston
   \item Tristan Brindle
   \item Graham Haynes
+  \item Eva Conti
 \end{itemize}
 
 \begin{thebibliography}{9}
@@ -796,14 +799,14 @@ the closure members are not actually addressable using \code{this.member}.
 
 The proposed semantics are essentially the same as \code{std::forward}.
 If \code{From} and \code{To} are the same type, \code{forward\_like} and
-\code{forward} act exactly the same.
+\code{forward} act identically.
 
 Proposed definition:
 \lstinputlisting[language=cpp,%
                  linerange=START_FWD_LIKE_DEF-END_FWD_LIKE_DEF]{%
                  forward_like.cpp}
 %
-To do that, we require another facility in the standard library, \code{like}:
+To do this, we require another facility in the standard library, \code{like}:
 \lstinputlisting[language=cpp,%
                  linerange=START_LIKE_DEF-END_LIKE_DEF]{%
                  forward_like.cpp}
