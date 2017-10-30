@@ -59,8 +59,9 @@ $(call def-test-failing,20)
 $(call def-test-failing,21)
 $(call def-test-failing,22)
 
+.PHONY: clean
 clean:
 	rm forward_like
-	fm examples
+	rm examples
 
 
