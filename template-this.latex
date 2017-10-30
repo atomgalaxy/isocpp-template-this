@@ -753,31 +753,37 @@ for functions that do not opt in to UFCS.
 
 \subsection*{Do you really have to redefine what \this means in functions?}
 
-The authors find that to be the best option. It seems to unify many aspects of
-the language (\this is far less special), at the cost of breaking the current
-idea that \this always means the same thing.
-
 An alternative proposal would be to use \this as an adjective, like so:
 
 \begin{lstlisting}[language=cpp]
 struct Person {
   std::string name;
   decltype(auto) GetName(auto&& this person) {
+    // this is a pointer, as normal
+    // person has the correct cv-ref qualifiers
     std::forward<decltype(person)>(person).name;
   }
 };
 \end{lstlisting}
 
-This would effectively give a name to the reference that has the correct type
-and cv-qualifications, and keep `this` as-is. It also does not introduce any new
-syntax, same as the current proposal above.
+In this case
+\begin{enumerate}
+  \item \this does not change the current meaning in any context.
+  \item Mutually recursive lambdas have a way of easily referring to one
+    another.
+  \item It is not as terse, as you need another way to call the function
+    parameter.
 
-The authors don't find this other syntax as compellingly short, though, and it
-does not unify parameters quite as nicely. It does mean nested lambdas have a
-way of mutually calling each other, though.
+    This could be resolved by making the name optional, in which case \code{T}
+    still resolves to the same thing (names are not necessary), but
+    \code{auto\&\& this /* no name */} does not help one to divine the value
+    type of whatever \this points to.
+  \item \this in a parameter list \emph{only} designates the parameter that UFCS
+    works on, and does no further work.
+\end{enumerate}
 
-If there is much preference for this option, the authors will write a paper
-exploring where this other option may lead.
+It has the potential to unify much more of the langauge. If this is a direction
+the committe would rather proceed, the paper will be re-drafted in this form.
 
 \section{Acknowledgments}
 
@@ -790,6 +796,7 @@ Thanks to the following for their help and guidance:
   \item Tristan Brindle
   \item Graham Haynes
   \item Eva Conti
+  \item Richard Smith
 \end{itemize}
 
 \begin{thebibliography}{9}
