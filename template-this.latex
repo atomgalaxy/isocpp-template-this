@@ -103,6 +103,7 @@
 \newcommand{\CC}{C\nolinebreak\hspace{-.05em}\raisebox{0.4ex}{\resizebox{!}{0.6\height}{\bf++}}}
 \newcommand{\cplusplus}{\protect\CC}
 \newcommand{\this}{\code{this}\xspace}
+\newcommand{\self}{\code{self}\xspace}
 \newcommand{\cvref}{\emph{cv-ref qualifiers}\xspace}
 
 \date{}
@@ -163,7 +164,9 @@ This impacts the performance of lambda expressions. One scenario where this
 becomes important is using lambda expressions as parts of a chain of
 asynchronous continuations that carry a value through a computation.
 
-Example:
+An example. If one does not know *which* one of the two asynchronous carriers is
+registered on the other side of a signal/slot mechanism, for instance, it is
+impossible to optimally ferry values over the mechanism with a lambda.
 \lstinputlisting[language=cpp,%
                  linerange=START_CPP17-END_CPP17]{%
                  examples.cpp}
@@ -202,31 +205,31 @@ In addition to solving the existing problems, desirable properties of a solution
 \section{Proposed Solution}
 
 We propose the ability to add an optional first parameter to any member function
-of a class \code{T}, taking the form \code{T [const] [volatile] [\&|\&\&] this}.
+of a class \code{T}, taking the form \code{T [const] [volatile] [\&|\&\&] this
+<identifier>}.
 
 To facilitate use in generic lambda expressions, this may also be formulated as
-\code{auto [const] [volatile] [\&|\&\&] this}.
+\code{auto [const] [volatile] [\&|\&\&] this <identifier>}.
 
-In all cases, the value category of \this inside the member function is
-exactly what the existing parameter rules would already imply. In other words,
-the \cvref that stand after the function signature now
-explicitly apply to the \this parameter.
+In all cases, the value category of a so-defined \code{identifier}inside the
+member function is exactly what the existing parameter rules would already
+imply. In other words, the \cvref that stand after the function signature now
+explicitly apply to the \code{identifier} so designated with \this.
 
 With this, the above "value carrier" example becomes:
 \lstinputlisting[language=cpp,%
                  linerange=START_TEMPLATE_THIS-END_TEMPLATE_THIS]{%
                  examples.cpp}
 
-
-Getter functions are the most affected. Here is an example of slightly more
+Getter functions get the greates benefit. Here is an example of slightly more
 common code:
 \begin{lstlisting}[language=cpp]
 struct Person {
   std::string name;
 
-  template <typename U>
-  decltype(auto) GetName(U&& this) {
-    return std::forward<T>(this).name;
+  template <typename Self>
+  decltype(auto) GetName(Self&& this self) {
+    return std::forward<Self>(self).name;
   }
 };
 \end{lstlisting}
@@ -242,34 +245,40 @@ The template above will likely result in the instantiation of the member functio
 These are all member functions we currently write by hand, and whose correct
 semantics must be manually maintained.
 
+The benefit gets slightly more obvious once we are not simply returning a
+member. For instance, :vs
+
+
 \section{What Does \this in a Parameter List Mean?}
 
-The meaning of the different ways to pass \this is the same as current
-general parameter handling.
+Effectively, \this denotes a parameter, that otherwise behaves completely
+normally, to be the parameter that \code{*this} refers to. The name of this
+parameter follows the general rules for parameter naming, but shall be referred
+to as \self for the remainder of this paper.
 
-The entries of this table should be read as if they are inside a class \code{T}:
+The entries of this table should be read as if they are inside a class \code{X}:
 
 \begin{lstlisting}[language=cpp]
-class T { /* entry */ };
+class X { /* entry */ };
 \end{lstlisting}
-In other words, \code{T} is \emph{not} a template parameter.
+In other words, \code{X} is \emph{not} a template parameter.
 
 \begin{tabular}{ | l | l | l | }
   \hline
   \textbf{written as} & \textbf{\cplusplus{}17 signature} & \textbf{comments}\\
   \hline
-  \code{void f(T this)} & currently not available & [value]\\
-  \code{void f(T\& this)} & \code{void f() \&} &\\
-  \code{void f(T\&\& this)} & \code{void f() \&\&} &\\
-  \code{void f(T const this)} & currently not available & [value]\\
-  \code{void f(T const\& this)} & \code{void f() const\&} &\\
-  \code{void f(T const\&\& this)} & \code{void f() const\&\&} &\\
-  \code{void f(T volatile this)} & currently not available & [value]\\
-  \code{void f(T volatile\& this)} & \code{void f() volatile\&} &\\
-  \code{void f(T volatile\&\& this)} & \code{void f() volatile\&\&} &\\
-  \code{void f(T const volatile this)} & currently not available & [value]\\
-  \code{void f(T const volatile\& this)} & \code{void f() const volatile\&} &\\
-  \code{void f(T const volatile\&\& this)} & \code{void f() const volatile\&\&} &\\
+  \code{void f(X this self)}                    & currently not available & [value]\\
+  \code{void f(X\& this self)}                  & \code{void f() \&} &\\
+  \code{void f(X\&\& this self)}                & \code{void f() \&\&} &\\
+  \code{void f(X const this self)}              & currently not available & [value]\\
+  \code{void f(X const\& this self)}            & \code{void f() const\&} &\\
+  \code{void f(X const\&\& this self)}          & \code{void f() const\&\&} &\\
+  \code{void f(X volatile this self)}           & currently not available & [value]\\
+  \code{void f(X volatile\& this self)}         & \code{void f() volatile\&} &\\
+  \code{void f(X volatile\&\& this self)}       & \code{void f() volatile\&\&} &\\
+  \code{void f(X const volatile this self)}     & currently not available & [value]\\
+  \code{void f(X const volatile\& this self)}   & \code{void f() const volatile\&} &\\
+  \code{void f(X const volatile\&\& this self)} & \code{void f() const volatile\&\&} &\\
   \hline
 \end{tabular}
 \newpage
@@ -281,32 +290,47 @@ In other words, \code{T} is \emph{not} a template parameter.
   but seems desirable for completeness and parity with \code{inline friend}
   functions.
 
-\item The interpretation of \this in the member function body differs, but only
-  one definition for a given signature may be present -- e.g. one may define at
-  most one of \code{void f()\&}, or \code{void f(T\& this)} or \code{void f()},
-  the first and last already being exclusive of one another.
+\item The interpretation of \this in the member function body is always the same
+  -- it points to the same object \self references.
 
+\item \self is \emph{not} a reserved identifier - instead, just a
+  conventional naming. Any valid identifier is valid instead of \self (as
+  is, for parity with the rest of the language, no name, since parameter names
+  are optional).
+
+\item \self, where it is visible, behaves exactly as a parameter declared
+  without \this. The only difference is in the call syntax. This means that type
+  deduction, use in decltype for trailing return types etc., and use within the
+  function body are completely unsurprising.
+
+\item As now, only one definition for a given signature may be present -- e.g.
+  one may define at most one of \code{void f()}, \code{void f()\&}, or
+  \code{void f(X\& this)}. The first two are already exclusive of each other, we
+  merely add a third way to define the very same method.
 \end{itemize}
 
-\subsection*{How does templated \this work?}
+\subsection*{How does a templated \this-designated parameter work?}
 
 It uses existing deduction rules for template parameters, which will deduce the
-type of \this to something in the above table.
+type of the \this-designated parameter to something in the above table.
 
 \subsection*{What does \this mean in the body of a member function?}
 
-It behaves exactly as a regular parameter declared in the same way.
+The behavior of \this is unchanged - it behaves as now. The behavior of
+\self is the same as a paramter declared without the \this designator. The
+only difference is in how \self is bound (to \code{*this}, and not to an
+explicitly provided parameter).
 
 \subsection*{Does this change overload resolution at all?}
 
 No. Non-templates still get priority over templates, \emph{et cetera}.
 
-\subsection*{How do the explicit \this and the current, trailing \cvref
-interact?}
+\subsection*{How do the explicit \this-designated parameter and the current,
+trailing \cvref interact?}
 
 Other than the pass-by-value member functions, which currently do not have
-syntax to represent them, the explicit \this signatures are aliases for those with
-trailing \cvref. They stand for the very same functions.
+syntax to represent them, the explicit \this signatures are aliases for those
+with trailing \cvref. They stand for the very same functions.
 
 This means that rewriting the function signature in a different style should not
 change the ABI of your class, and you should also be able to implement a
@@ -318,7 +342,7 @@ Given the fact that there is no obvious meaning to the expression
 \begin{lstlisting}[language=cpp]
 struct X {
   template <typename... Ts>
-  void f(Ts... this);
+  void f(Ts... this selves);
 };
 \end{lstlisting}
 such a program is ill-formed.
@@ -326,8 +350,7 @@ such a program is ill-formed.
 \subsection*{Constructors and Destructors}
 
 No change to current rules. Currently, one cannot have different cv-ref versions
-of either, so you cannot take \this as any parameter to a constructor or
-destructor.
+of either, so you cannot designate any parameter with \this.
 
 \subsection*{What about pass-by-value member functions?}
 
@@ -345,10 +368,10 @@ templates.
 class string_builder {
   std::string s;
 
-  operator std::string (string_builder this) {
+  operator std::string (string_builder this self) {
     return std::move(s);
   }
-  string_builder operator*(string_builder this, int n) {
+  string_builder operator*(string_builder this self, int n) {
     assert(n > 0);
 
     s.reserve(s.size() * n);
@@ -356,11 +379,11 @@ class string_builder {
     for (auto i = 0; i < n; ++i) {
       s.append(s, 0, size);
     }
-    return this;
+    return self;
   }
-  string_builder bop(string_builder this) {
+  string_builder bop(string_builder this self) {
     s.append("bop");
-    return this;
+    return self;
   }
 };
 
@@ -382,7 +405,8 @@ Currently, we write member function pointers like so:
 All the member functions that take references already have a function pointer
 syntax - they are just alternate ways of writing functions we can already write.
 
-The only one that does not have such a syntax is the pass-by-value method.
+The only one that does not have such a syntax is the pass-by-value method, all
+others have pre-existing signatures that do just fine.
 
 We are asking for suggestions for syntax for these function pointers. We
 give our first pass here:
@@ -406,8 +430,6 @@ We believe there would be no confusion, since in all cases, the value category
 of \this is stated plainly in the parameter list, which is on the very same
 screen.
 
-This also makes the definition of ``\code{const} member function'' more obvious,
-meaning it can more easily be taught to students.
 
 One can always obtain the address of the object by taking the address of \this.
 
@@ -479,15 +501,18 @@ following code compiles:
 All this would do is unify the rules for free function templates and member
 function templates.
 
-\subsection*{Teachability implications}
+\subsection*{Teachability Implications}
 
-Using \code{auto\&\& this} follows existing patterns for dealing with forwarding
-references.
+Using \code{auto\&\& this self} follows existing patterns for dealing with
+forwarding references.
 
-Optionally adding \this as the first parameter fits with many programmers'
-mental model of the \this pointer being the first parameter to member functions
-"under the hood" and is comparable to usage in other languages, e.g. Python and
-Rust.
+Explicitly naming the object as the \this-designated first parameter fits with
+many programmers' mental model of the \this pointer being the first parameter to
+member functions "under the hood" and is comparable to usage in other languages,
+e.g. Python and Rust.
+
+This also makes the definition of ``\code{const} member function'' more obvious,
+meaning it can more easily be taught to students.
 
 It also works as a more obvious way to teach how \code{std::bind} and
 \code{std::function} work with a member function pointer by making the pointer
@@ -496,11 +521,12 @@ explicit.
 \subsection*{ABI implications for \code{std::function} and related}
 
 If references and pointers do not have the same representation for member
-functions, this effectively says "for the purposes of \this, they do."
+functions, this effectively says "for the purposes of the \this-designated first
+parameter, they do."
 
 This matters because code written in the ``\this is a pointer'' syntax with the
-'\code{->}' notation needs to be assembly-identical to code written with the
-'\code{.}' notation; the two are just different ways to implement a function
+'\code{this->}' notation needs to be assembly-identical to code written with the
+'\code{self.}' notation; the two are just different ways to implement a function
 with the same signature.
 
 \section{Implications for Lambda Expressions}
@@ -509,18 +535,19 @@ Generic lambdas, should they take an \code{auto\&\& this} parameter, work
 according to existing rewriting rules. The \code{auto\&\& this} is turned into a
 "forwarding reference" and deduced as if it were inside a
 \code{template <typename T>
-auto operator()(T\&\& this) \{ ...\ \}}.
+auto operator()(T\&\& this self) \{ ...\ \}}.
 
-\subsection*{Do we allow \this in lambdas that decay to a function pointer?}
+\subsection*{Do we allow \this \self in lambdas that decay to a function
+pointer?}
 
-If the lambda would otherwise decay to a function pointer, \code{\&this} shall
+If the lambda would otherwise decay to a function pointer, \code{\&self} shall
 have the value of that function pointer.
 
 \subsection*{Does this allow recursion in lambdas?}
 
-Yes. You're allowed to call \code{this(...)}.
+Yes. You're allowed to call \code{self(...)}.
 
-\subsection*{Expressions allowed for \this in lambdas}
+\subsection*{Expressions allowed for \self in lambdas}
 
 \begin{lstlisting}[language=cpp]
   this(...);      // call with appropriate signature
@@ -539,58 +566,26 @@ category of the lambda and access its members -- including various call operator
 
 \subsection*{Interplays with capturing \code{[this]} and \code{[*this]}}
 
-\this is passed as a parameter, and parameters shadow. Therefore, \this inside the
-lambda body points to the closure, and its type is the type of the lambda with
-the appropriate \cvref.
+\this just designates the parameter that is bound to the reference to the
+function object. It does not, in any way, change the meaning of \this.
 
-One loses the ability to refer to the object captured by \code{*this} directly
-through its \code{*this} pointer, but the members are very much still in scope.
+If other language features play with what \this means, they are completely
+orthogonal and do not have interplays with this proposal. However, it should be
+obvious that develpers have a great potential for introducing hard-to-read code
+if they are at all changing the meaning of \this, especially in conjunction with
+this proposal.
 
-\emph{Example:}
-\lstinputlisting[language=cpp,%
-                 linerange=START_CAPTURE_STARTHIS-END_CAPTURE_STARTHIS]{%
-                 examples.cpp}
-%
+\subsubsection*{Note: Lambdas, \self, and the members of the closure object}
+It is not possible to refer to members of the closure using \self.  The closure
+has no defined layout, its members do not have names, and the members referenced
+may not even be inserted into the closure, if one exists at all. Members of the
+closure may be used as they are currently - they are simply in scope.
 
-That said, it's not possible to refer to members of the closure using the \this
-pointer of the lambda -- the closure has no defined layout, its members do not
-have names, and the members referenced may not even be inserted into the
-closure, if one exists at all. Members of the closure may be used as they are
-currently - they are simply in scope.
+All operations \emph{on the lambda itself}, such as calling, moving, etc. are
+available - \self is equivalent to any other variable that references the
+lambda.
 
-\subsection*{Should we allow \this to be a pointer?}
-
-In other words, does offering an alternative syntax for what we can already do
-with the current syntax make sense?
-
-\begin{lstlisting}[language=cpp]
-struct X {
-  // should we allow
-  int f(X* this);
-  // to mean
-  int f() &;
-  // and all the other syntaxes mentioned above, for the pointer (const,
-  // volatile)?
-};
-\end{lstlisting}
-
-We believe that this should not be done, for multiple reasons:
-\begin{enumerate}
-  \item We already have the syntax to do it.
-  \item Having a pointer is strictly less powerful than having a reference.
-    There are no pointers to rvalue references, the address of a reference can
-    always be taken should there be a need for the pointer, and \this is never
-    null.
-  \item It kills the direction of uniform function call syntax (UCFS), since
-    pointers are a valid overloadable concrete type, separate from the class.
-\end{enumerate}
-
-The only argument raised to us for offering the pointer syntax is to provide a
-simpler migration path to the new syntax; however, the new syntax does not
-deprecate the old, so migration is unnecessary. In other words, the old syntax
-is perfectly fine. We just use it can't to template on the type of \this.
-
-\subsection*{Is \code{auto\&\& this} allowed in member functions as well as
+\subsection*{Is \code{auto\&\& this self} allowed in member functions as well as
 lambdas?}
 
 Yes. \code{auto\&\& param\_name} has a well-defined meaning that is unified

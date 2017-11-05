@@ -6,15 +6,11 @@
 #include <vector>
 
 // START_CLOSURE_EXAMPLE_DEFINITIONS
-auto const text = std::string_view{"Mired before cave STOP "
-                                   "Only flesh wounds so far STOP "
-                                   "Send holy hand grenade of Antioch STOP "
-                                   "Love Knights of Ni STOP"};
 
 // pretend this is some async handler - only the framework knows if it can
 // consume the value or not
 template <typename Source, typename... Sinks, typename Sink>
-void tee(Source &&source, Sink &&sink, Sinks &&... other_sinks) {
+void tee(Source&& source, Sink&& sink, Sinks&&... other_sinks) {
   if constexpr (sizeof...(other_sinks) > 0) {
     sink(source()); // a sink shall only ever be used once
     tee(std::forward<Source>(source), std::forward<Sinks>(other_sinks)...);
@@ -24,37 +20,50 @@ void tee(Source &&source, Sink &&sink, Sinks &&... other_sinks) {
 }
 
 // various handlers, some consume the value, some don't
-auto print = [](auto &&message) { std::cout << message << std::endl; };
+auto print = [](auto&& message) { std::cout << message << std::endl; };
 
 std::vector<std::string> precious;
-auto save = [](auto &&message) {
+auto save = [](auto&& message) {
   precious.emplace_back(std::forward<decltype(message)>(message));
 };
 // END_CLOSURE_EXAMPLE_DEFINITIONS
 
 // START_CPP17
-struct optimal_carrier {
+struct Optimal {
   std::string message;
-  std::string const &operator()() const & { return message; }
-  std::string &&operator()() && { return std::move(message); }
+  std::string const& operator()() const & { return message; }
+  std::string&& operator()() && { return std::move(message); }
 };
 // no way to have both && and const& call operators...
-auto suboptimal_lambda = [message = std::string(text)]() -> auto const & {
+auto const text = std::string_view{"Mired before cave STOP "
+                                   "Only flesh wounds so far STOP "
+                                   "Send Holy Hand Grenade of Antioch STOP "
+                                   "Love Knights of Ni STOP"};
+auto suboptimal_carrier = [message = std::string(text)]() -> auto const& {
   return message;
 };
-  // END_CPP17
+auto optimal_carrier = Optimal{std::string(text)};
+// possible usages on the receive side:
+auto handler_1 = [](auto get_data) {
+  auto data = std::move(get_data)(); // zero copy for Optimal, copy for lambda
+};
+auto handler_2 = [](auto get_data) {
+  auto data = get_data(); // copy for both
+};
+// END_CPP17
 
 #ifdef THIS_ARTICLE
 // START_TEMPLATE_THIS
 struct optimal_source {
   std::string message;
-  template <typename Self> decltype(auto) operator()(Self &&this) {
-    return std::forward<Self>(this).message;
+  template <typename Self>
+  decltype(auto) operator()(Self&& this self) {
+    return std::forward<Self>(self).message;
   }
 };
-auto optimal_lambda = [message = std::string(text)](auto &&this) mutable
+auto optimal_lambda = [message = std::string(text)](auto&& this self) mutable
                       -> decltype(auto) {
-  return std::forward_like<decltype(this)>(message);
+  return std::forward_like<decltype(self)>(message);
 };
 // END_TEMPLATE_THIS
 #endif
@@ -66,11 +75,12 @@ void optimal_usage() {
 }
 
 void best_lambda_usage() {
-  auto carrier = [message = std::string(text)]()->auto const & {
+  auto carrier = [message = std::string(text)]()->auto const& {
     return message;
   };
   tee(std::move(carrier), print, save); // incurs a copy
 }
+
   // END_CLOSURE_EXAMPLE_USAGE
 
 #ifdef THIS_PAPER
@@ -81,7 +91,7 @@ struct X {
 
   auto f() {
     // capture *this by copy
-    auto h = [*this](auto &&this, int n) {
+    auto h = [*this](auto&& this, int n) {
       // decltype(this) is decltype(h) [const][&|&&], depending on which call
       // operator is invoked.
       g(n); // members of X are still accessible
@@ -108,14 +118,14 @@ static_assert(std::is_same_v<decltype(&Y::f), int (Y::*)(int, int) const &>);
 #ifdef THIS_PAPER
 // START_MEMBER_VAL_POINTER
 struct Z {
-  int f(Z const &this, int a, int b);
+  int f(Z const& this, int a, int b);
   // same as `int f(int a, int b) const&;`
   int g(Z this, int a, int b);
 };
 // f is still the same as Y::f
 static_assert(std::is_same_v<decltype(&Z::f), int (Z::*)(int, int) const &>);
 // but would this alternate syntax make any sense?
-static_assert(std::is_same_v<decltype(&Z::f), int (*)(Z::const &, int, int)>);
+static_assert(std::is_same_v<decltype(&Z::f), int (*)(Z::const&, int, int)>);
 // It allows us to specify the syntax for Z as a pass-by-value member function
 static_assert(std::is_same_v<decltype(&Z::g), int (*)(Z::, int, int)>);
 
@@ -126,16 +136,18 @@ namespace personwrapper_17 {
 // START_PERSONWRAPPER_17
 struct Person {
   std::string name;
-  template <typename U> friend decltype(auto) GetName(U &&self);
+  template <typename U>
+  friend decltype(auto) GetName(U&& self);
 };
-template <typename U> decltype(auto) GetName(U &&self) {
+template <typename U>
+decltype(auto) GetName(U&& self) {
   return std::forward<U>(self).name;
 }
 
 struct PersonWrapper {
   std::string name;
   template <typename Person>
-  PersonWrapper(Person &&p) : name(std::forward<Person>(p).name) {}
+  PersonWrapper(Person&& p) : name(std::forward<Person>(p).name) {}
 };
 
 void use() { GetName<PersonWrapper>(Person{"Arthur Dent"}); }
